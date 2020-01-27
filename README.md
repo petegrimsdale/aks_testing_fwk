@@ -1,2 +1,12 @@
-# aks_testing_fwk
-AKS based jmeter testing framework with Grafana reporting
+# AKS based scalable Jmeter Test Framework with Grafana
+
+## Introduction
+
+
+## Instructions for use
+
+### Installing
+
+### Set up Jmeter Dashboard
+
+### Running your first Jmeter test
