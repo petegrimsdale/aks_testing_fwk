@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: reporter
-          image: testframeworkacr.azurecr.io/testframework/reporter:latest
+          image: ###acrname###.azurecr.io/testframework/reporter:latest
           imagePullPolicy: IfNotPresent
           command: [ "/bin/bash", "-c", "--" ]
           args: [ "chown grafana /var/lib/grafana; chgrp grafana /var/lib/grafana;chown influxdb /var/lib/influxdb; chgrp influxdb /var/lib/influxdb;service influxdb start;service grafana-server start;while true; do sleep 30; done;" ]

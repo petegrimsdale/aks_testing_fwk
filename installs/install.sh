@@ -11,7 +11,9 @@
 subscriptionId=$(az account show --query id --output tsv)
 
 #ACR Name to be used
-acrName="testframeworkacr"
+suffix=$(echo $RANDOM % 1000 + 1 |bc)
+acrbase="testframeworkacr"
+acrName=$acrbase$suffix
 ############################################################################
 #common functions
 ############################################################################
@@ -123,13 +125,30 @@ clean_up() {
 
 #remove the SP
     #get the sp id
-    servicePrincipalId=$(az ad sp list --display-name jmeteraksadmin -o tsv |awk '{print $5}')
+    echo "INFO:retrieving Service Principal Id for $spname"
+    servicePrincipalId=$(az ad sp list --display-name $spname -o tsv --query [].appId)
+    echo "INFO: Service Principal ID is:"$servicePrincipalId
     if az ad sp delete --id "$servicePrincipalId" 1>/dev/null; then
         echo "Service Principal deleted...."
     else
-        echo "Failed to delete service Principal with ID [ $servicePrincipalId ].  Please delete manually"
+        echo "Failed to delete service Principal with name $spname and ID [ $servicePrincipalId ].  Please delete manually"
         exit 1
     fi
+
+#remove the updated template files
+if [ -f ../deploy/jslave.yaml ]; then
+rm -f ../deploy/jslave.yaml
+fi
+
+if [ -f ../deploy/jmaster.yaml ]; then
+rm -f ../deploy/jmaster.yaml
+fi
+
+if [ -f ../deploy/reporter.yaml ]; then
+rm -f ../deploy/reporter.yaml
+fi
+
+
 }
 
 fwk_install(){
@@ -151,25 +170,26 @@ else
     exit 1
 fi
 
-servicePrincipal=$(echo $sp |awk -F\" '{print $1}')
-clientSecret=$(echo $sp |awk -F\" '{print $4}')
+servicePrincipal=$(echo $sp |awk '{print $1}')
+clientSecret=$(echo $sp |awk '{print $4}')
 
 if [[ -z ${servicePrincipal}  ]] || [[ -z ${clientSecret}  ]] ;
 then
-    echo "Service Principal credentials have not been retrieved ...."
+    echo "ERROR: Service Principal credentials have not been retrieved exiting...."
     exit 1
 else
-    echo "Service Principal credentials have been created....."
+    echo "INFO:Service Principal credentials have been created....."
 fi
 
 ##create acr to use to store containers
-if ! az acr show --name $acrName &>/dev/null; then
-    echo "Container registry [ $acrName ] does not exist...."
-    echo "Creating container registry..."
+acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
+if [ $acrCheck == "true" ]; then
+    echo "INFO:Container registry [ $acrName ] does not exist...."
+    echo "INFO:Creating container registry..."
     az acr create --name $acrName --resource-group $resourceGroup --sku Basic --admin-enabled true
     if [ $? -ne 0 ]
         then
-            echo "Failed to create container registry in the resource group [ $resourceGroup ] error: '${?}'"
+            echo "ERROR: Failed to create container registry in the resource group [ $resourceGroup ] "
             exit 1
     fi
 else
@@ -179,7 +199,7 @@ fi
 ##build and push the master,slave and reporter images to acr
 
 
-if ! az acr repository show -n testframeworkacr --image testframework/jmetermaster:latest &>/dev/null; then
+if ! az acr repository show -n $acrName --image testframework/jmetermaster:latest &>/dev/null; then
     echo "master image does not exist....creating..."
     echo "building jmeter master container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/jmetermaster:latest -f ../master/Dockerfile -r $acrName .
@@ -194,7 +214,7 @@ else
     echo "jmetermaster:lastest already existing in acr...."
 fi
 
-if ! az acr repository show -n testframeworkacr --image testframework/jmeterslave:latest &>/dev/null; then
+if ! az acr repository show -n $acrName --image testframework/jmeterslave:latest &>/dev/null; then
     echo "slave image does not exist....creating..."
     echo "building jmeter slave container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/jmeterslave:latest -f ../slave/Dockerfile -r $acrName .
@@ -209,7 +229,7 @@ else
     echo "jmeterslave:lastest already existing in acr...."
 fi
 
-if ! az acr repository show -n testframeworkacr --image testframework/reporter:latest &>/dev/null; then
+if ! az acr repository show -n $acrName --image testframework/reporter:latest &>/dev/null; then
     echo "slave image does not exist....creating..."
     echo "building jmeter reporter container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/reporter:latest -f ../reporter/Dockerfile -r $acrName .
@@ -252,7 +272,7 @@ fi
 az aks get-credentials --resource-group $resourceGroup --name jmeteraks --overwrite-existing
 
 nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
-if [ -z {$nodes} ]; then
+if [[ -z {$nodes} ]]; then
     echo "issue with kubectl setup"
     exit 1
 else
@@ -261,10 +281,21 @@ fi
 
 
 #add reporter nodepool
+echo "INFO:Adding reporting nodepool..."
 az aks nodepool add --cluster-name jmeteraks -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
 reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
 kubectl taint nodes $reporternode sku=reporter:NoSchedule
 
+
+echo "INFO:Generating yaml files from templates..."
+
+# read the yaml template from a file and substitute the string 
+# ###acrname### with the value of the acrName variable
+sed "s/###acrname###/$acrName/g" ../deploy/reporter.yaml.template > ../deploy/reporter.yaml
+sed "s/###acrname###/$acrName/g" ../deploy/jslave.yaml.template > ../deploy/jslave.yaml
+sed "s/###acrname###/$acrName/g" ../deploy/jmaster.yaml.template > ../deploy/jmaster.yaml
+
+# apply the yml with the substituted value
 
 echo "Creating Reporting...."
 kubectl apply -f ../deploy/azure-premium.yaml
@@ -274,7 +305,7 @@ kubectl apply -f ../deploy/reporter.yaml
 
 echo "Creating Jmeter Slaves.."
 kubectl apply -f ../deploy/jslaves_svc.yaml
-kubectl apply -f ../deploy/jmeter_slave.yaml
+kubectl apply -f ../deploy/jslave.yaml
 
 echo "Creating Jmeter Master"
 kubectl apply -f ../deploy/jmeter-master-configmap.yaml
@@ -284,9 +315,33 @@ echo "kubernetes deployment completed successfully"
 
 
 influxdb_pod=$(kubectl get pods | grep report | awk '{print $1}')
+echo "INFO: Waiting for reporting container to start...."
+
+x=1
+while [ `kubectl get pods |grep report |awk '{print $3}'` != "Running" ]
+do
+echo "Checking reporting pod is running ...check#"$x
+$(( x++ ))
+sleep 10
+done
+
+echo "INFO: reporting container started...."
+echo "INFO: Adding jmeter database to Influxdb...."
+
 kubectl exec -ti $influxdb_pod -- influx -execute 'CREATE DATABASE jmeter'
 
+echo "INFO: Jmeter database added to Influxdb...."
+echo "INFO: Adding default datasource to grafana...."
+
 kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@127.0.0.1:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
+
+echo "INFO: Default datasource added to Grafana...."
+
+lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
+
+echo "#########################"
+echo "## Grafana can be accessed at"$lbIP" ##"
+echo "#########################"
 
 
 }

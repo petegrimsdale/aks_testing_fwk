@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: jmslave
-        image: testframeworkacr.azurecr.io/testframework/jmeterslave:latest
+        image: ###acrname###.azurecr.io/testframework/jmeterslave:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 1099
