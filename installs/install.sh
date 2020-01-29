@@ -119,7 +119,7 @@ clean_up() {
     else
         echo "deleting resource group..."
         echo ""
-        if az group delete --name "$resourceGroup" -y  1>/dev/null; then
+        if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
             echo "[ $resourceGroup ] resource group successfully deleted from the [ $subscriptionId ] subscription"
             echo ""
         else
