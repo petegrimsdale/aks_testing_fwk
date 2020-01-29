@@ -337,6 +337,8 @@ kubectl exec -ti $influxdb_pod -- influx -execute 'CREATE DATABASE jmeter'
 
 echo "INFO: Jmeter database added to Influxdb...."
 echo "INFO: Adding default datasource to grafana...."
+#give Grafana time to start
+sleep 20
 
 kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
 
