@@ -42,9 +42,35 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 
 The public IP address of the loadbalancer can then be used to access the Grafana login window
 
+![grafana login](./images/grafana.png)
+
 
 ### Set up Jmeter Dashboard
 Once the Grafana dashboad has been accessed an initial dashboard should be loaded ( note: a default datasource has already been created )
 
+![grafana dashboard](./images/grafana2.png)
 
-### Running your first Jmeter test
+Select Dashboards ....Manage as below:
+
+![grafana dashboard](./images/grafana3.png)
+
+This will open the Dashboard Management Window.....Select "Import"
+
+![grafana import](./images/grafana4.png)
+
+On the Import window enter 4026 as the Id for the dashboard as below
+
+![grafana uid](./images/grafana5.png)
+
+This will import the dashboard from Grafana labs and display the settings dialog as below - update the database name as shown and select Import to load the dashboard
+
+![grafana datasource](./images/grafana6.png)
+
+The Grafana Jmeter dashboard will be loaded with the default settings ready for your first Jmeter Test
+
+![grafana Jmeter dashboard](./images/grafana7.png)
+
+
+
+
+## Running your first Jmeter test
