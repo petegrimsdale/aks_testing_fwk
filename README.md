@@ -98,6 +98,7 @@ for the example test script:
 ./starttest.sh simple.jmx
 
 Example output will show the testplan being "distributed" to a single node ( as there is only 1 slave node with the default install )
+
 ![simple test run](./images/simple1.png)
 
 If you navigate to the Grafana dashboard you will see output data similar to:  (note:  change the timerange and application name)
@@ -121,14 +122,14 @@ The influxDb URL must be set to:  http://jmeter-influxdb:8086/write?db=jmeter
 Application - this is a name of your choice ( used in the Grafana dashboard to filter )
 Measurement - should be set to jmeter
 
-### Running your own tests
+## Running your own tests
 
-#### Test Plan
+### Test Plan
 After creating your testplan using a local Jmeter GUI instance save a copy of the testplan to the "deploy" directory
 Run the testplan with ./starttest.sh {testplan.jmx}
 
 
-## Scaling the Test Framework
+### Scaling the Test Framework
 The Test Framework is deployed with a single Jmeter Slave node.  To run a larger test ( more slaves ) scale out the jmeter-slaves deployment using:
 kubectl scale deployments jmeter-slaves --replicas={number required}
 
