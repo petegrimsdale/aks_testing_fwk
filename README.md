@@ -112,4 +112,29 @@ This page does not provide full details of how to create a Jmeter test plan - re
 
 #### BackendListener Configuration
 
+The Jmeter BackEndListener needs to be configured to send data to InfluxDB to allow the real-time metrics
 
+![backendListener](./images/backendlistener.png)
+
+Select the correct Backend Listener Implementation - this needs to be the Influx listener
+The influxDb URL must be set to:  http://jmeter-influxdb:8086/write?db=jmeter
+Application - this is a name of your choice ( used in the Grafana dashboard to filter )
+Measurement - should be set to jmeter
+
+### Running your own tests
+
+#### Test Plan
+After creating your testplan using a local Jmeter GUI instance save a copy of the testplan to the "deploy" directory
+Run the testplan with ./starttest.sh {testplan.jmx}
+
+
+## Scaling the Test Framework
+The Test Framework is deployed with a single Jmeter Slave node.  To run a larger test ( more slaves ) scale out the jmeter-slaves deployment using:
+kubectl scale deployments jmeter-slaves --replicas={number required}
+
+This will scale the number of slaves ( note the configuration is set to autoscale the cluster and you will need to wait whilst the cluster scales out)
+Check the status with:
+kubectl get deployments -w
+
+
+## Troubleshooting Notes
