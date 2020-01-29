@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jmeter-master
+  labels:
+    jmeter_mode: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      jmeter_mode: master
+  template:
+    metadata:
+      labels:
+        jmeter_mode: master
+    spec:
+      containers:
+      - name: jmmaster
+        image: testframeworkacr364.azurecr.io/testframework/jmetermaster:latest
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "while true; do sleep 30; done;" ]
+        volumeMounts:
+          - name: loadtest
+            mountPath: /load_test
+            subPath: "load_test"
+        ports:
+        - containerPort: 60000
+      volumes:
+      - name: loadtest 
+        configMap:
+         name: jmeter-load-test

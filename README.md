@@ -46,7 +46,16 @@ The public IP address of the loadbalancer can then be used to access the Grafana
 
 
 ### Set up Jmeter Dashboard
-Once the Grafana dashboad has been accessed an initial dashboard should be loaded ( note: a default datasource has already been created )
+Once the Grafana dashboad has been accessed an initial Grafana page should be loaded ( note: a default datasource has already been created )
+
+An initial dashboard has been loaded as part of the installation as :
+
+![grafana dashboard](./images/grafana1.png)
+
+Select the Jmeter dashboard to open the default dashboard to support testing
+
+
+If no dashboard is available follow the steps below to load a Jmeter dashboard to display testing data
 
 ![grafana dashboard](./images/grafana2.png)
 
@@ -71,6 +80,61 @@ The Grafana Jmeter dashboard will be loaded with the default settings ready for 
 ![grafana Jmeter dashboard](./images/grafana7.png)
 
 
+The key items to note are:
+1. The application Name - this will be linked to your Jmeter test plan configuration ( see below )
+2. Start/Stop marker - this will indicate when a jmeter test is started and stopped
+3. Time range - this will define the time period the dashboard displays data for.
 
 
 ## Running your first Jmeter test
+
+To validate the deployment a simple test script has been provided.  To run this test navigate to the deploy directory.  To run any tests the file starttest.sh is used in the form:
+- make the file starttest.sh executable 
+    - chmod +x starttest.sh
+- to execute a test run
+./starttest.sh {testfilename}
+
+for the example test script:
+./starttest.sh simple.jmx
+
+Example output will show the testplan being "distributed" to a single node ( as there is only 1 slave node with the default install )
+![simple test run](./images/simple1.png)
+
+If you navigate to the Grafana dashboard you will see output data similar to:  (note:  change the timerange and application name)
+
+![grafana output](./images/grafana8.png)
+
+
+## Writing your own Jmeter Test Plan
+### Jmeter Test Plan Setup
+
+This page does not provide full details of how to create a Jmeter test plan - refer to the Apache Jmeter documentation for this purpose, however the key element to include into the test plan is a BackendListener configuration
+
+#### BackendListener Configuration
+
+The Jmeter BackEndListener needs to be configured to send data to InfluxDB to allow the real-time metrics
+
+![backendListener](./images/backendlistener.png)
+
+Select the correct Backend Listener Implementation - this needs to be the Influx listener
+The influxDb URL must be set to:  http://jmeter-influxdb:8086/write?db=jmeter
+Application - this is a name of your choice ( used in the Grafana dashboard to filter )
+Measurement - should be set to jmeter
+
+### Running your own tests
+
+#### Test Plan
+After creating your testplan using a local Jmeter GUI instance save a copy of the testplan to the "deploy" directory
+Run the testplan with ./starttest.sh {testplan.jmx}
+
+
+## Scaling the Test Framework
+The Test Framework is deployed with a single Jmeter Slave node.  To run a larger test ( more slaves ) scale out the jmeter-slaves deployment using:
+kubectl scale deployments jmeter-slaves --replicas={number required}
+
+This will scale the number of slaves ( note the configuration is set to autoscale the cluster and you will need to wait whilst the cluster scales out)
+Check the status with:
+kubectl get deployments -w
+
+
+## Troubleshooting Notes
