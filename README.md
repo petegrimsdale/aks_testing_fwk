@@ -46,7 +46,16 @@ The public IP address of the loadbalancer can then be used to access the Grafana
 
 
 ### Set up Jmeter Dashboard
-Once the Grafana dashboad has been accessed an initial dashboard should be loaded ( note: a default datasource has already been created )
+Once the Grafana dashboad has been accessed an initial Grafana page should be loaded ( note: a default datasource has already been created )
+
+An initial dashboard has been loaded as part of the installation as :
+
+![grafana dashboard](./images/grafana1.png)
+
+Select the Jmeter dashboard to open the default dashboard to support testing
+
+
+If no dashboard is available follow the steps below to load a Jmeter dashboard to display testing data
 
 ![grafana dashboard](./images/grafana2.png)
 
@@ -71,6 +80,36 @@ The Grafana Jmeter dashboard will be loaded with the default settings ready for 
 ![grafana Jmeter dashboard](./images/grafana7.png)
 
 
+The key items to note are:
+1. The application Name - this will be linked to your Jmeter test plan configuration ( see below )
+2. Start/Stop marker - this will indicate when a jmeter test is started and stopped
+3. Time range - this will define the time period the dashboard displays data for.
 
 
 ## Running your first Jmeter test
+
+To validate the deployment a simple test script has been provided.  To run this test navigate to the deploy directory.  To run any tests the file starttest.sh is used in the form:
+- make the file starttest.sh executable 
+    - chmod +x starttest.sh
+- to execute a test run
+./starttest.sh {testfilename}
+
+for the example test script:
+./starttest.sh simple.jmx
+
+Example output will show the testplan being "distributed" to a single node ( as there is only 1 slave node with the default install )
+![simple test run](./images/simple1.png)
+
+If you navigate to the Grafana dashboard you will see output data similar to:  (note:  change the timerange and application name)
+
+![grafana output](./images/grafana8.png)
+
+
+## Writing your own Jmeter Test Plan
+### Jmeter Test Plan Setup
+
+This page does not provide full details of how to create a Jmeter test plan - refer to the Apache Jmeter documentation for this purpose, however the key element to include into the test plan is a BackendListener configuration
+
+#### BackendListener Configuration
+
+

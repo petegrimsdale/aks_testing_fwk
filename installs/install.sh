@@ -322,11 +322,11 @@ echo "kubernetes deployment completed successfully"
 influxdb_pod=$(kubectl get pods | grep report | awk '{print $1}')
 echo "INFO: Waiting for reporting container to start...."
 
-x=1
+COUNTER=1
 while [ `kubectl get pods |grep report |awk '{print $3}'` != "Running" ]
 do
-echo "Checking reporting pod is running ...check#"$x
-$(( x++ ))
+echo "Checking reporting pod is running ...check#"$COUNTER
+let COUNTER++
 sleep 10
 done
 
@@ -338,14 +338,24 @@ kubectl exec -ti $influxdb_pod -- influx -execute 'CREATE DATABASE jmeter'
 echo "INFO: Jmeter database added to Influxdb...."
 echo "INFO: Adding default datasource to grafana...."
 
-kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@127.0.0.1:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
+kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
 
 echo "INFO: Default datasource added to Grafana...."
+
+
+echo "INFO: Adding default dashboard"
+dashboard=$(cat ../deploy/jmeterDash.json)
+
+kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/dashboards/db' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary "$dash"
+
+echo "INFO: Default dashboard has been added"
+
+
 
 lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
 
 echo "#########################"
-echo "## Grafana can be accessed at"$lbIP" ##"
+echo "## Grafana can be accessed at"$lbIp" ##"
 echo "#########################"
 
 
