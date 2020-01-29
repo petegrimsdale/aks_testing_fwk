@@ -352,6 +352,8 @@ kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/da
 
 echo "INFO: Default dashboard has been added"
 
+echo "INFO: kubernetes details..."
+kubectl get -n default all
 
 
 lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
