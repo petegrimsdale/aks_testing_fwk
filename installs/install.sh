@@ -120,7 +120,7 @@ clean_up() {
         echo "deleting resource group..."
         echo ""
         if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
-            echo "[ $resourceGroup ] resource group successfully deleted from the [ $subscriptionId ] subscription"
+            echo "[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
             echo ""
         else
             echo "Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
