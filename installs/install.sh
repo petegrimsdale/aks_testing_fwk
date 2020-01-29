@@ -14,6 +14,10 @@ subscriptionId=$(az account show --query id --output tsv)
 suffix=$(echo $RANDOM % 1000 + 1 |bc)
 acrbase="testframeworkacr"
 acrName=$acrbase$suffix
+#AKS cluster name
+aksbase="jmeteraks"
+aksName=$aksbase$suffix
+
 ############################################################################
 #common functions
 ############################################################################
@@ -94,11 +98,12 @@ kube_check() {
 #check AKS cluster
 cluster_check() {
     echo "checking access to AKS cluster...."
-    if ! az aks get-credentials -g "$resourceGroup" -n jmeteraks &>/dev/null; then
-        echo "No jmeteraks cluster exists in the resource group [ $resourceGroup ]...."
+    aksCluster=$(az aks list -g $resourceGroup -o tsv --query [].name)
+    if [[ -z ${aksCluster}  ]]; then
+        echo "No AKS cluster exists in the resource group [ $resourceGroup ]...."
         echo ""
     else
-        echo "Jmeteraks cluster exists in [ $resourceGroup ]..."
+        echo "An existing AKS cluster, $aksCluster exists in [ $resourceGroup ]..."
         echo ""
     fi
 }
@@ -249,7 +254,7 @@ fi
 echo "Creating AKS cluster with D2s_v3 nodes...."
 az aks create \
     --resource-group $resourceGroup \
-    --name jmeteraks \
+    --name $aksName \
     --node-count 3 \
     --service-principal $servicePrincipal \
     --client-secret $clientSecret \
@@ -269,7 +274,7 @@ fi
 
 
 ###get creds
-az aks get-credentials --resource-group $resourceGroup --name jmeteraks --overwrite-existing
+az aks get-credentials --resource-group $resourceGroup --name $aksName --overwrite-existing
 
 nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
 if [[ -z {$nodes} ]]; then
@@ -282,7 +287,7 @@ fi
 
 #add reporter nodepool
 echo "INFO:Adding reporting nodepool..."
-az aks nodepool add --cluster-name jmeteraks -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
+az aks nodepool add --cluster-name $aksName -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
 reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
 kubectl taint nodes $reporternode sku=reporter:NoSchedule
 
