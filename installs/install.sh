@@ -346,9 +346,9 @@ echo "INFO: Default datasource added to Grafana...."
 
 
 echo "INFO: Adding default dashboard"
-dashboard=$(cat ../deploy/jmeterDash.json)
+kubectl cp ../deploy/jmeterDash.json $influxdb_pod:/jmeterDash.json
 
-kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/dashboards/db' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary "$dash"
+kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/dashboards/db' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '@jmeterDash.json'
 
 echo "INFO: Default dashboard has been added"
 
@@ -357,7 +357,7 @@ echo "INFO: Default dashboard has been added"
 lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
 
 echo "#########################"
-echo "## Grafana can be accessed at"$lbIp" ##"
+echo "## Grafana can be accessed at: "$lbIp" ##"
 echo "#########################"
 
 
