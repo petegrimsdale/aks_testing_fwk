@@ -121,16 +121,15 @@ clean_up() {
 
     #remove resource group
     if ! az group show --name "$resourceGroup" &>/dev/null; then
-        echo "No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
+        echo "ERROR:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
         echo ""
+        exit 1
     else
-        echo "deleting resource group..."
-        echo ""
+        echo "INFO: deleting resource group..."
         if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
-            echo "[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
-            echo ""
+            echo "INFO:[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
         else
-            echo "Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
+            echo "ERROR: Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
             exit 1
         fi
     fi
@@ -141,9 +140,9 @@ clean_up() {
     servicePrincipalId=$(az ad sp list --display-name $spname -o tsv --query [].appId)
     echo "INFO: Service Principal ID is:"$servicePrincipalId
     if az ad sp delete --id "$servicePrincipalId" 1>/dev/null; then
-        echo "Service Principal deleted...."
+        echo "INFO: Service Principal deleted...."
     else
-        echo "Failed to delete service Principal with name $spname and ID [ $servicePrincipalId ].  Please delete manually"
+        echo "ERROR: Failed to delete service Principal with name $spname and ID [ $servicePrincipalId ].  Please delete manually"
         exit 1
     fi
 
