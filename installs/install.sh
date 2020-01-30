@@ -9,18 +9,24 @@
 
 # SubscriptionId of the current subscription
 subscriptionId=$(az account show --query id --output tsv)
+logfile=./testfwklog
+exec > >(tee -ai $logfile) 2>&1
 
-#ACR Name to be used
-suffix=$(echo $RANDOM % 1000 + 1 |bc)
-acrbase="testframeworkacr"
-acrName=$acrbase$suffix
-#AKS cluster name
-aksbase="jmeteraks"
-aksName=$aksbase$suffix
-
+dt=$(date)
+echo "### Logging Info ###"
+echo "INFO: Starting installation action at:"$dt
 ############################################################################
 #common functions
 ############################################################################
+
+#script version and date
+get_version(){
+
+    #echo "Installer version 1.1"
+    #echo "Version Date: 29/01/2020"
+    echo "INFO:Installer version 1.2"
+    echo "INFO:Version Date: 30/01/2020"
+}
 
 # Check if the resource group already exists
 rg_check() {
@@ -29,26 +35,24 @@ rg_check() {
     echo "Checking if [ $resourceGroup ] resource group actually exists in the [$subscriptionId] subscription..."
     if [ $command == "install" ]; then
         if ! az group show --name "$resourceGroup" &>/dev/null; then
-            echo "No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
-            echo "Creating [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription..."
+            echo "INFO:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
+            echo "INFO:Creating [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription..."
 
             # Create the resource group
             if az group create --name "$resourceGroup" --location "$location" 1>/dev/null; then
-                echo "[ $resourceGroup ] resource group successfully created in the [ $subscriptionId ] subscription"
+                echo "INFO:[ $resourceGroup ] resource group successfully created in the [ $subscriptionId ] subscription"
             else
-                echo "Failed to create [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription"
+                echo "ERROR:Failed to create [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription"
                 exit 1
             fi
         else
-            echo "[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
+            echo "INFO:[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
         fi
     else
         if ! az group show --name "$resourceGroup" &>/dev/null; then
-            echo "No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
-            echo ""
+            echo "INFO:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
         else
-            echo "[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
-            echo ""
+            echo "INFO:[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
         fi
     fi
 }
@@ -59,6 +63,7 @@ display_help() {
     echo "Usage: $0 [option...]" >&2
     echo
     echo "   command    install / validate"
+    echo "   Full Testing framework install - creates rg, ACR, AKS cluster and deployment"
     echo "   -g		Resource Group Name."
     echo "   -l		Location."
     echo "   -s		spname"
@@ -66,6 +71,11 @@ display_help() {
     echo "   command    delete"
     echo "   -g		Resource Group Name."
     echo "   -s		spname"
+    echo 
+    echo "   command    kube_deploy"
+    echo "   deploys only the Kubernetes elements to the existing fwk cluster"
+    echo "   -g		Resource Group Name."
+    echo "   -c		clustername"
     exit 1
 }
 
@@ -73,38 +83,34 @@ display_help() {
 sp_check() {
 spId=$(az ad sp list --display-name $spname -o tsv --query [].appId)
 if [[ -z ${spId}  ]]; then
-    echo "Service Principal - $spname a does not exist...."
-    echo ""
+    echo "INFO:Service Principal - $spname a does not exist...."
 else
-    echo "Service Principal - $spname already exists...."
-    echo "please choose altenative name"
+    echo "INFO:Service Principal - $spname already exists...."
+    echo "INFO:Please choose altenative name"
 fi
 }
 
 # kubectl check
 kube_check() {
-    echo "checking if kubectl is present"
+    echo "INFO:Checking if kubectl is present"
 
     if ! hash kubectl 2>/dev/null
         then
-            echo "'kubectl' was not found...."
-            echo "Kindly ensure that you can acces an existing kubernetes cluster via kubectl / install kubectl"
+            echo "INFO:'kubectl' was not found...."
+            echo "INFO:Kindly ensure that you can acces an existing kubernetes cluster via kubectl / install kubectl"
     else
-        echo "kubectl was successfully found..."
-        echo ""
+        echo "INFO: 'kubectl' was successfully found..."
     fi
 }
 
 #check AKS cluster
 cluster_check() {
-    echo "checking access to AKS cluster...."
+    echo "INFO:checking access to AKS cluster...."
     aksCluster=$(az aks list -g $resourceGroup -o tsv --query [].name)
     if [[ -z ${aksCluster}  ]]; then
-        echo "No AKS cluster exists in the resource group [ $resourceGroup ]...."
-        echo ""
+        echo "INFO:No AKS cluster exists in the resource group [ $resourceGroup ]...."
     else
-        echo "An existing AKS cluster, $aksCluster exists in [ $resourceGroup ]..."
-        echo ""
+        echo "INFO:An existing AKS cluster, $aksCluster exists in [ $resourceGroup ]..."
     fi
 }
 
@@ -114,16 +120,15 @@ clean_up() {
 
     #remove resource group
     if ! az group show --name "$resourceGroup" &>/dev/null; then
-        echo "No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
+        echo "ERROR:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
         echo ""
+        exit 1
     else
-        echo "deleting resource group..."
-        echo ""
+        echo "INFO: deleting resource group..."
         if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
-            echo "[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
-            echo ""
+            echo "INFO:[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
         else
-            echo "Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
+            echo "ERROR: Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
             exit 1
         fi
     fi
@@ -134,9 +139,9 @@ clean_up() {
     servicePrincipalId=$(az ad sp list --display-name $spname -o tsv --query [].appId)
     echo "INFO: Service Principal ID is:"$servicePrincipalId
     if az ad sp delete --id "$servicePrincipalId" 1>/dev/null; then
-        echo "Service Principal deleted...."
+        echo "INFO: Service Principal deleted...."
     else
-        echo "Failed to delete service Principal with name $spname and ID [ $servicePrincipalId ].  Please delete manually"
+        echo "ERROR: Failed to delete service Principal with name $spname and ID [ $servicePrincipalId ].  Please delete manually"
         exit 1
     fi
 
@@ -156,13 +161,159 @@ fi
 
 }
 
-get_version(){
+kube_install(){
 
-    echo "Installer version 1.1"
-    echo "Version Date: 29/01/2020"
+###get creds
+if az aks get-credentials --resource-group $resourceGroup --name $aksName --overwrite-existing &>/dev/null; then
+    nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
+        if [[ -z {$nodes} ]]; then
+            echo "issue with kubectl setup"
+            exit 1
+        else
+            echo "INFO: kubectl available...."
+        fi
+else
+    echo "ERROR: Cannot connect to AKS cluster $aksName . Please check the cluster name provided is correct"
+    exit 1
+fi
+
+#check ACR is available
+if [[ -z $acrName ]];then
+acrsuffix=$(echo $aksName|awk -F"-" '{print $2}')
+    if [[ -z $acrsuffix ]];then
+        echo "ERROR: ACR name cannot be empty"
+        exit 1
+    else
+        acrName="testframeworkacr"$acrsuffix
+        echo "INFO:ACR name is "$acrName
+    fi
+else
+    echo "INFO:ACR name is "$acrName
+fi
+
+
+
+acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
+if [ $acrCheck == "true" ]; then
+    echo "ERROR:Container registry [ $acrName ] does not exist...."
+    exit 1
+else
+    echo "INFO:Container registry [ $acrName ] exists...."
+fi
+
+#add reporter nodepool
+#check if already exists
+
+reportingnodepool=0
+
+for i in $(az aks nodepool list -g rg-testing --cluster-name $aksName -o tsv --query [].name)
+do
+    if [ $i == "reporterpool" ]; then
+        echo "INFO: Reporting Node Pool aready exists"
+        reportingnodepool=1
+    fi
+done
+
+if [[ $reportingnodepool -eq 0 ]]; then
+    echo "INFO:Adding reporting nodepool..."
+    az aks nodepool add --cluster-name $aksName -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
+    reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
+    echo "INFO: Tainting reporting node..."
+    kubectl taint nodes $reporternode sku=reporter:NoSchedule
+    echo "INFO: Tainting reporting node completed..."
+fi
+
+echo "INFO:Generating yaml files from templates..."
+
+# read the yaml template from a file and substitute the string 
+# ###acrname### with the value of the acrName variable
+sed "s/###acrname###/$acrName/g" ../deploy/reporter.yaml.template > ../deploy/reporter.yaml
+sed "s/###acrname###/$acrName/g" ../deploy/jslave.yaml.template > ../deploy/jslave.yaml
+sed "s/###acrname###/$acrName/g" ../deploy/jmaster.yaml.template > ../deploy/jmaster.yaml
+
+echo "INFO:Template yaml files generated in deploy directory..."
+
+# apply the yaml with the substituted value
+
+echo "INFO:Creating Reporting deployment...."
+kubectl apply -f ../deploy/azure-premium.yaml
+kubectl apply -f ../deploy/influxdb_svc.yaml
+kubectl apply -f ../deploy/jmeter_influx_configmap.yaml
+kubectl apply -f ../deploy/reporter.yaml
+echo "INFO:Reporting deployment complete...."
+echo "INFO:Creating Jmeter Slaves.."
+kubectl apply -f ../deploy/jslaves_svc.yaml
+kubectl apply -f ../deploy/jslave.yaml
+echo "INFO:Jmeter slave deployment complete...."
+
+echo "INFO:Creating Jmeter Master"
+kubectl apply -f ../deploy/jmeter-master-configmap.yaml
+kubectl apply -f ../deploy/jmaster.yaml
+echo "INFO: Jmeter Master deployment complete...."
+
+influxdb_pod=$(kubectl get pods | grep report | awk '{print $1}')
+echo "INFO: Waiting for reporting container to start...."
+
+COUNTER=1
+while [ `kubectl get pods |grep report |awk '{print $3}'` != "Running" ]
+do
+echo "INFO: Checking reporting pod is running ...check#"$COUNTER
+let COUNTER++
+sleep 5
+done
+
+echo "INFO: reporting container started...."
+echo "INFO: Adding jmeter database to Influxdb...."
+
+kubectl exec -ti $influxdb_pod -- influx -execute 'CREATE DATABASE jmeter'
+
+echo "INFO: Jmeter database added to Influxdb...."
+echo "INFO: Adding default datasource to grafana...."
+#give Grafana time to start
+# changed to remove sleep and replace with kubectl action
+#sleep 20
+#kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
+
+kubectl cp ../deploy/datasource.json $influxdb_pod:/datasource.json
+kubectl exec -ti $influxdb_pod -- /bin/bash -c 'until [[ $(curl "http://admin:admin@localhost:3000/api/datasources" -X POST -H "Content-Type: application/json;charset=UTF-8" --data-binary @datasource.json) ]]; do sleep 5; done'
+
+echo "INFO: Default datasource added to grafana...."
+
+
+echo "INFO: Adding default dashboard"
+kubectl cp ../deploy/jmeterDash.json $influxdb_pod:/jmeterDash.json
+
+kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/dashboards/db' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '@jmeterDash.json'
+
+echo "INFO: Default dashboard has been added"
+
+echo "INFO: kubernetes details..."
+kubectl get -n default all
+
+
+lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
+
+echo "#########################################"
+echo "## Grafana can be accessed at: "$lbIp" ##"
+echo "#########################################"
+echo "## AKS cluster name is: "$aksName"     ##"
+echo "#########################################"
+
+
 }
 
 fwk_install(){
+
+#default settings
+#ACR Name to be used
+suffix=$(echo $RANDOM % 1000 + 1 |bc)
+acrbase="testframeworkacr"
+acrName=$acrbase$suffix
+#AKS cluster name
+aksbase="jmeteraks-"
+aksName=$aksbase$suffix
+
+
 #create the required service principal to use with AKS / ACR
 # do this first to prevent acr creation if sp is not correct...
 spId=$(az ad sp list --display-name $spname -o tsv --query [].appId)
@@ -202,6 +353,8 @@ if [ $acrCheck == "true" ]; then
         then
             echo "ERROR: Failed to create container registry in the resource group [ $resourceGroup ] "
             exit 1
+        else
+            echo "INFO: Acr $acrName created"
     fi
 else
     echo "Container registry [ $acrName ] already exists...."
@@ -211,53 +364,53 @@ fi
 
 
 if ! az acr repository show -n $acrName --image testframework/jmetermaster:latest &>/dev/null; then
-    echo "master image does not exist....creating..."
-    echo "building jmeter master container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:master image does not exist....creating..."
+    echo "INFO:building jmeter master container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/jmetermaster:latest -f ../master/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
-        echo "Failed to build and push master container error: '${?}'"
+        echo "ERROR:Failed to build and push master container error: '${?}'"
         exit 1
     else
-        echo "jmeter master container completed...."
+        echo "INFO:jmeter master container completed...."
     fi
 else
-    echo "jmetermaster:lastest already existing in acr...."
+    echo "INFO:jmetermaster:lastest already existing in acr...."
 fi
 
 if ! az acr repository show -n $acrName --image testframework/jmeterslave:latest &>/dev/null; then
-    echo "slave image does not exist....creating..."
-    echo "building jmeter slave container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:slave image does not exist....creating..."
+    echo "INFO:building jmeter slave container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/jmeterslave:latest -f ../slave/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
-        echo "Failed to build and push slave error: '${?}'"
+        echo "ERROR:Failed to build and push slave error: '${?}'"
         exit 1
     else
-        echo "jmeter slave container completed...."
+        echo "INFO:jmeter slave container completed...."
     fi
 else
-    echo "jmeterslave:lastest already existing in acr...."
+    echo "INFO:jmeterslave:lastest already existing in acr...."
 fi
 
 if ! az acr repository show -n $acrName --image testframework/reporter:latest &>/dev/null; then
-    echo "slave image does not exist....creating..."
-    echo "building jmeter reporter container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:slave image does not exist....creating..."
+    echo "INFO:building jmeter reporter container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
     az acr build -t testframework/reporter:latest -f ../reporter/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
-        echo "Failed to build and push slave error: '${?}'"
+        echo "ERROR:Failed to build and push slave error: '${?}'"
         exit 1
     else
-        echo "jmeter reporter container completed...."
+        echo "INFO:jmeter reporter container completed...."
     fi
 else
-    echo "reporter:lastest already existing in acr...."
+    echo "INFO:reporter:lastest already existing in acr...."
 fi
 
 
 ##create default AKS cluster with node size Standard_D2s_V3
-echo "Creating AKS cluster with D2s_v3 nodes...."
+echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
 az aks create \
     --resource-group $resourceGroup \
     --name $aksName \
@@ -274,101 +427,12 @@ az aks create \
 
 if [ $? -ne 0 ]
     then
-        echo "Failed to create aks cluster, error: '${?}'"
+        echo "ERROR: Failed to create aks cluster, error: '${?}'"
         clean_up
 fi
 
-
-###get creds
-az aks get-credentials --resource-group $resourceGroup --name $aksName --overwrite-existing
-
-nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
-if [[ -z {$nodes} ]]; then
-    echo "issue with kubectl setup"
-    exit 1
-else
-    echo "kubectl available...."
-fi
-
-
-#add reporter nodepool
-echo "INFO:Adding reporting nodepool..."
-az aks nodepool add --cluster-name $aksName -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
-reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
-kubectl taint nodes $reporternode sku=reporter:NoSchedule
-
-
-echo "INFO:Generating yaml files from templates..."
-
-# read the yaml template from a file and substitute the string 
-# ###acrname### with the value of the acrName variable
-sed "s/###acrname###/$acrName/g" ../deploy/reporter.yaml.template > ../deploy/reporter.yaml
-sed "s/###acrname###/$acrName/g" ../deploy/jslave.yaml.template > ../deploy/jslave.yaml
-sed "s/###acrname###/$acrName/g" ../deploy/jmaster.yaml.template > ../deploy/jmaster.yaml
-
-# apply the yml with the substituted value
-
-echo "Creating Reporting...."
-kubectl apply -f ../deploy/azure-premium.yaml
-kubectl apply -f ../deploy/influxdb_svc.yaml
-kubectl apply -f ../deploy/jmeter_influx_configmap.yaml
-kubectl apply -f ../deploy/reporter.yaml
-
-echo "Creating Jmeter Slaves.."
-kubectl apply -f ../deploy/jslaves_svc.yaml
-kubectl apply -f ../deploy/jslave.yaml
-
-echo "Creating Jmeter Master"
-kubectl apply -f ../deploy/jmeter-master-configmap.yaml
-kubectl apply -f ../deploy/jmaster.yaml
-
-echo "kubernetes deployment completed successfully"
-
-
-influxdb_pod=$(kubectl get pods | grep report | awk '{print $1}')
-echo "INFO: Waiting for reporting container to start...."
-
-COUNTER=1
-while [ `kubectl get pods |grep report |awk '{print $3}'` != "Running" ]
-do
-echo "Checking reporting pod is running ...check#"$COUNTER
-let COUNTER++
-sleep 10
-done
-
-echo "INFO: reporting container started...."
-echo "INFO: Adding jmeter database to Influxdb...."
-
-kubectl exec -ti $influxdb_pod -- influx -execute 'CREATE DATABASE jmeter'
-
-echo "INFO: Jmeter database added to Influxdb...."
-echo "INFO: Adding default datasource to grafana...."
-#give Grafana time to start
-# changed to remove sleep and replace with kubectl action
-sleep 20
-kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
-
-#kubectl exec -ti $influxdb_pod -- /bin/bash -c 'until [[ $(curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}') ]]; do sleep 5; done'
-echo "INFO: Default datasource added to Grafana...."
-
-
-echo "INFO: Adding default dashboard"
-kubectl cp ../deploy/jmeterDash.json $influxdb_pod:/jmeterDash.json
-
-kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/dashboards/db' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '@jmeterDash.json'
-
-echo "INFO: Default dashboard has been added"
-
-echo "INFO: kubernetes details..."
-kubectl get -n default all
-
-
-lbIp=$(kubectl get svc |grep reporter |awk '{print $4}')
-
-echo "#########################"
-echo "## Grafana can be accessed at: "$lbIp" ##"
-echo "#########################"
-
+# call the kubernetes install function to deploy kube components
+kube_install
 
 }
 
@@ -385,7 +449,6 @@ location=""  # Default to empty target
 
 
 get_version
-echo ""
 
 command=$1
 case "$command" in
@@ -424,19 +487,71 @@ case "$command" in
 
     if [[ -z ${resourceGroup}  ]] || [[ -z ${location}  ]] || [[ -z ${spname}  ]] ;
         then
-            echo "Resource Group,location and spname must be provided"
+            echo "ERROR:Resource Group,location and spname must be provided"
             exit 1
         else
-            echo "the resource group will be:" $resourceGroup
-            echo "the location of the deployment will be:" $location
-            echo "spname will be...." $spname
+            dt=$(date +"%d/%m %T")
+            echo $dt" INFO: Starting Framework deployment ..."
+            echo "INFO: The resource group will be:" $resourceGroup 
+            echo "INFO: The location of the deployment will be:" $location
+            echo "INFO: The Service Principal name used will be...." $spname
     fi
 
     #check for resource group and create if not existing
     rg_check
     #create sp and AKS cluster
     fwk_install
-    echo "install completed successfully...."
+    dt=$(date +"%d/%m %T")
+    echo $dt" INFO: Framework install completed successfully...."
+    exit 0
+    ;;
+
+    kube_deploy )
+    # Process package options
+    shift
+        while getopts hg:c: opt; do
+                case ${opt} in
+                    (h)
+                        display_help
+                        ;;
+                    (g)
+                        resourceGroup=$OPTARG
+                        ;;
+                    (c)
+                        aksName=$OPTARG
+                        ;;
+                    (*)
+                        display_help
+                        ;;
+                    (\?)
+                        echo "Invalid Option: -$OPTARG" 1>&2
+                        display_help
+                        ;;
+                    (:)
+                        echo "Invalid Option: -$OPTARG requires an argument" 1>&2
+                        display_help
+                        ;;
+                esac
+        done
+    shift $((OPTIND -1))
+
+    if [[ -z ${resourceGroup}  ]] || [[ -z ${aksName}  ]] ;
+        then
+            echo "Resource Group and AKS cluster name must be provided"
+            exit 1
+        else
+            dt=$(date +"%d/%m %T")
+            echo $dt" INFO: Starting Kube deployment ..."
+            echo "INFO:the resource group will be:" $resourceGroup
+            echo "INFO:AKS name assumed will be: " $aksName
+    fi
+
+    #check for resource group and create if not existing
+    rg_check
+    #install Kubernetes elements
+    kube_install
+    dt=$(date +"%d/%m %T")
+    echo $dt" INFO: Kubernetes only deployment completed successfully...."
     exit 0
     ;;
 
@@ -487,9 +602,8 @@ case "$command" in
         else
             echo "no action has been taken......"
         fi
-
-        echo ""
-        echo "resources successfull deleted...."
+        dt=$(date +"%d/%m %T")
+        echo $dt" INFO: Framework deployment completed successfully...."
         exit 0
         ;;
 

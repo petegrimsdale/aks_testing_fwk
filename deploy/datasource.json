@@ -1,0 +1,1 @@
+{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}
