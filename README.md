@@ -24,19 +24,23 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 4. Running install.sh
     - can we run with the following parameters
         #### validate
-        - install.sh validate -g {resource-group-name} -l {location} -s {service-principal-name}
+        `install.sh validate -g {resource-group-name} -s {service-principal-name}`
+
         - This will validate the target environment, checking resource group, service principal name and AKS
 
         #### install
-        - install.sh install -g {resource-group-name} -s {service-principal-name} -l {location}
+        `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location}`
+      
         - This will deploy to the target environment using the resource group and location defined.  It will create the resource group, service principal, Azure Container Registry, build and upload containers for Jmeter Master, Jmeter Slave and reporting, create an AKS cluster and deploy and configure all the elements required to run a test.
 
         #### delete
-        - install.sh delete -g {resource-group-name} -s {service-principal-name}
+        `install.sh delete -g {resource-group-name} -s {service-principal-name}`
+       
         This will remove all resources and the service principal
 
         #### kube_deploy
-        - install.sh kube_deploy -g {resource-group-name} -c {aks-cluster-name}
+        `install.sh kube_deploy -g {resource-group-name} -c {aks-cluster-name}`
+
         - This will deploy and configure all the kubernetes elements required to deploy pods, configure Influx and Grafana on an existing Test Framework cluster.
 
 5. Once the deployment has completed successfully the Grafana dashboard can be accessed via the public IP of the provisioned loadbalancer.  The easiest way to obtain this is to run
