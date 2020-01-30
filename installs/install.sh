@@ -22,6 +22,15 @@ aksName=$aksbase$suffix
 #common functions
 ############################################################################
 
+#script version and date
+get_version(){
+
+    #echo "Installer version 1.1"
+    #echo "Version Date: 29/01/2020"
+    echo "Installer version 1.2"
+    echo "Version Date: 30/01/2020"
+}
+
 # Check if the resource group already exists
 rg_check() {
     rg=$resourceGroup
@@ -156,11 +165,7 @@ fi
 
 }
 
-get_version(){
 
-    echo "Installer version 1.1"
-    echo "Version Date: 29/01/2020"
-}
 
 fwk_install(){
 #create the required service principal to use with AKS / ACR
@@ -333,7 +338,7 @@ while [ `kubectl get pods |grep report |awk '{print $3}'` != "Running" ]
 do
 echo "Checking reporting pod is running ...check#"$COUNTER
 let COUNTER++
-sleep 10
+sleep 5
 done
 
 echo "INFO: reporting container started...."
@@ -345,10 +350,12 @@ echo "INFO: Jmeter database added to Influxdb...."
 echo "INFO: Adding default datasource to grafana...."
 #give Grafana time to start
 # changed to remove sleep and replace with kubectl action
-sleep 20
-kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
+#sleep 20
+#kubectl exec -ti $influxdb_pod -- curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}'
 
-#kubectl exec -ti $influxdb_pod -- /bin/bash -c 'until [[ $(curl 'http://admin:admin@localhost:3000/api/datasources' -X POST -H 'Content-Type: application/json;charset=UTF-8' --data-binary '{"name":"jmeterdb","type":"influxdb","url":"http://localhost:8086","access":"proxy","isDefault":true,"database":"jmeter","user":"admin","password":"admin"}') ]]; do sleep 5; done'
+kubectl cp ../deploy/datasource.json $influxdb_pod:/datasource.json
+kubectl exec -ti $influxdb_pod -- /bin/bash -c 'until [[ $(curl "http://admin:admin@localhost:3000/api/datasources" -X POST -H "Content-Type: application/json;charset=UTF-8" --data-binary @datasource.json) ]]; do sleep 5; done'
+
 echo "INFO: Default datasource added to Grafana...."
 
 
