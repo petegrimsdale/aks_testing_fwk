@@ -35,6 +35,10 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
         - install.sh delete -g {resource-group-name} -s {service-principal-name}
         This will remove all resources and the service principal
 
+        #### kube_deploy
+        - install.sh kube_deploy -g {resource-group-name} -c {aks-cluster-name}
+        - This will deploy and configure all the kubernetes elements required to deploy pods, configure Influx and Grafana on an existing Test Framework cluster.
+
 5. Once the deployment has completed successfully the Grafana dashboard can be accessed via the public IP of the provisioned loadbalancer.  The easiest way to obtain this is to run
  - kubectl get svc
 

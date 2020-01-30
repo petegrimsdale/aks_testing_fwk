@@ -181,7 +181,7 @@ fi
 
 #check ACR is available
 if [[ -z $acrName ]];then
-acrsuffix=$(echo $aksName|awk -F"s" '{print $2}')
+acrsuffix=$(echo $aksName|awk -F"-" '{print $2}')
     if [[ -z $acrsuffix ]];then
         echo "ERROR: ACR name cannot be empty"
         exit 1
