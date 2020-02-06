@@ -208,7 +208,7 @@ fi
 
 reportingnodepool=0
 
-for i in $(az aks nodepool list -g rg-testing --cluster-name $aksName -o tsv --query [].name)
+for i in $(az aks nodepool list -g $resourceGroup --cluster-name $aksName -o tsv --query [].name)
 do
     if [ $i == "reporterpool" ]; then
         echo "INFO: Reporting Node Pool aready exists"
