@@ -24,8 +24,10 @@ get_version(){
 
     #echo "Installer version 1.1"
     #echo "Version Date: 29/01/2020"
-    echo "INFO:Installer version 1.2"
-    echo "INFO:Version Date: 30/01/2020"
+    #echo "INFO:Installer version 1.2"
+    #echo "INFO:Version Date: 30/01/2020"
+    echo "INFO:Installer version 1.3"
+    echo "INFO:Version Date: 6/02/2020"
 }
 
 # Check if the resource group already exists
@@ -306,7 +308,11 @@ fwk_install(){
 
 #default settings
 #ACR Name to be used
-suffix=$(echo $RANDOM % 1000 + 1 |bc)
+#fix unique naming
+str=$(uuidgen)
+suffix=$(echo "${str: -5}")
+echo "INFO: suffic used is: "$suffix
+#suffix=$(echo $RANDOM % 1000 + 1 |bc)
 acrbase="testframeworkacr"
 acrName=$acrbase$suffix
 #AKS cluster name
@@ -358,6 +364,7 @@ if [ $acrCheck == "true" ]; then
     fi
 else
     echo "Container registry [ $acrName ] already exists...."
+    exit 1
 fi
 
 ##build and push the master,slave and reporter images to acr
