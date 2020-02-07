@@ -310,8 +310,18 @@ fwk_install(){
 #ACR Name to be used
 #fix unique naming
 str=$(uuidgen)
-suffix=$(echo "${str: -5}")
-echo "INFO: suffic used is: "$suffix
+if [ ! -z $str ]; then
+    suffix=$(echo "${str: -5}")
+else
+    str=$(date +'%s')
+    suffix=$(echo "${str: -5}")
+fi
+if [ -z $suffix ];then
+    echo "ERROR: suffix error"
+    exit 1
+fi
+
+echo "INFO: suffix used is: "$suffix
 #suffix=$(echo $RANDOM % 1000 + 1 |bc)
 acrbase="testframeworkacr"
 acrName=$acrbase$suffix
