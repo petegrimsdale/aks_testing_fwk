@@ -13,7 +13,7 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 ## Installation
 
 ### Pre-requisities
-- az cli is installed (assumes use of linux based client not powershell)
+- az cli (version 2.0.80 or above) is installed (assumes use of linux based client not powershell) 
 - kubectl is installed ( https://kubernetes.io/docs/tasks/tools/install-kubectl/ )
 
 
