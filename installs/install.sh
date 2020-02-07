@@ -364,6 +364,7 @@ acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
 if [ $acrCheck == "true" ]; then
     echo "INFO:Container registry [ $acrName ] does not exist...."
     echo "INFO:Creating container registry..."
+    echo "DEBUG: az acr create --name "$acrName" --resource-group "$resourceGroup" --sku Basic --admin-enabled true"
     az acr create --name $acrName --resource-group $resourceGroup --sku Basic --admin-enabled true
     if [ $? -ne 0 ]
         then
