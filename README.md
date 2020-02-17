@@ -48,7 +48,7 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 
  ![kubeclt result](./images/lb_svc.png)
 
-The public IP address of the loadbalancer can then be used to access the Grafana login window
+The public IP address of the loadbalancer can then be used to access the Grafana login window ( access with default credentials admin/admin)
 
 ![grafana login](./images/grafana.png)
 
