@@ -24,7 +24,7 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 4. Running install.sh
     - can we run with the following parameters
         #### validate
-        `install.sh validate -g {resource-group-name} -s {service-principal-name}`
+        `install.sh validate -g {resource-group-name} -s {service-principal-name} -l {location}`
 
         - This will validate the target environment, checking resource group, service principal name and AKS
 
