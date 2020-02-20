@@ -24,7 +24,7 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 4. Running install.sh
     - can we run with the following parameters
         #### validate
-        `install.sh validate -g {resource-group-name} -s {service-principal-name}`
+        `install.sh validate -g {resource-group-name} -s {service-principal-name} -l {location}`
 
         - This will validate the target environment, checking resource group, service principal name and AKS
 
@@ -99,7 +99,7 @@ The key items to note are:
 To validate the deployment a simple test script has been provided.  To run this test navigate to the deploy directory.  To run any tests the file starttest.sh is used in the form:
 - make the file starttest.sh executable 
 ```
-    - chmod +x starttest.sh
+chmod +x starttest.sh
 ```
 - to execute a test run
 ```
@@ -108,7 +108,6 @@ To validate the deployment a simple test script has been provided.  To run this 
 for the example test script:
 ```
 ./starttest.sh simple.jmx
-
 ```
 Example output will show the testplan being "distributed" to a single node ( as there is only 1 slave node with the default install )
 
@@ -142,20 +141,17 @@ After creating your testplan using a local Jmeter GUI instance save a copy of th
 Run the testplan with:
 ```
  ./starttest.sh {testplan.jmx}
-
 ```
 
 ### Scaling the Test Framework
 The Test Framework is deployed with a single Jmeter Slave node.  To run a larger test ( more slaves ) scale out the jmeter-slaves deployment using:
 ```
 kubectl scale deployments jmeter-slaves --replicas={number required}
-
 ```
 This will scale the number of slaves ( note the configuration is set to autoscale the cluster and you will need to wait whilst the cluster scales out)
 Check the status with:
 ```
 kubectl get deployments -w
-
 ```
 
 ## Troubleshooting Notes
@@ -164,5 +160,5 @@ kubectl get deployments -w
 In some instances there may be a scenario where the remote slave cannot be contacted by the master node at test start.  In this case the IP address of the pod will be the last one listed in the remote server list.
 - Using the Ip address of the remote slave find the pod using : 
 ```
-kubectl get pods -o wide |grep <ip address>
+kubectl get pods -o wide |grep {ip address}
 ```
