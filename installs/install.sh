@@ -26,8 +26,10 @@ get_version(){
     #echo "Version Date: 29/01/2020"
     #echo "INFO:Installer version 1.2"
     #echo "INFO:Version Date: 30/01/2020"
-    echo "INFO:Installer version 1.3"
-    echo "INFO:Version Date: 6/02/2020"
+    #echo "INFO:Installer version 1.3"
+    #echo "INFO:Version Date: 6/02/2020"
+    echo "INFO:Installer version 1.4"
+    echo "INFO:Version Date: 20/02/2020"
 }
 
 # Check if the resource group already exists
@@ -69,6 +71,8 @@ display_help() {
     echo "   -g		Resource Group Name."
     echo "   -l		Location."
     echo "   -s		spname"
+    echo "   -v		vnet address prefix (optional)"
+    echo "   -n		subnet address prefix (optional)"
     echo
     echo "   command    delete"
     echo "   -g		Resource Group Name."
@@ -359,6 +363,7 @@ else
     echo "INFO:Service Principal credentials have been created....."
 fi
 
+
 ##create acr to use to store containers
 acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
 if [ $acrCheck == "true" ]; then
@@ -426,27 +431,68 @@ else
     echo "INFO:reporter:lastest already existing in acr...."
 fi
 
-
-##create default AKS cluster with node size Standard_D2s_V3
-echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
-az aks create \
-    --resource-group $resourceGroup \
-    --name $aksName \
-    --node-count 3 \
-    --service-principal $servicePrincipal \
-    --client-secret $clientSecret \
-    --enable-cluster-autoscaler \
-    --min-count 1 \
-    --max-count 50 \
-    --generate-ssh-keys \
-	--disable-rbac \
-	--node-vm-size Standard_D2s_v3 \
-	--location $location
-
-if [ $? -ne 0 ]
+if [ -n ${vnetprefix} ] && [ -n ${subnetprefix}]; then
+##create vnet and subnet if required for deployment
+    az network vnet create --name testfwkvnet \
+                         -g $resourceGroup \
+                         -l $location \
+                         --address-prefixes $vnetprefix \
+                         --subnet-name testfwksubnet \
+                         --subnet-prefixes $subnetprefix
+    if [ $? -ne 0 ]
     then
-        echo "ERROR: Failed to create aks cluster, error: '${?}'"
-        clean_up
+        echo "ERROR: Failed to create required vnet"
+        exit 1
+    else
+        echo "INFO: VNET and Subnet created successfully"
+        subnetId=$(az network vnet show --name testfwkvnet -g $resourceGroup -o tsv --query subnets[0].id)
+        echo "INFO: Creating AKS cluster with Vnet deployment"
+        ##create default AKS cluster with node size Standard_D2s_V3
+        echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
+        az aks create \
+            --resource-group $resourceGroup \
+            --name $aksName \
+            --node-count 3 \
+            --service-principal $servicePrincipal \
+            --client-secret $clientSecret \
+            --enable-cluster-autoscaler \
+            --min-count 1 \
+            --max-count 50 \
+            --generate-ssh-keys \
+	        --disable-rbac \
+	        --node-vm-size Standard_D2s_v3 \
+	        --location $location \
+            --vnet-subnet-id $subnetId
+
+        if [ $? -ne 0 ]
+        then
+            echo "ERROR: Failed to create aks cluster, error: '${?}'"
+            clean_up
+        fi
+    fi
+else
+    echo "INFO: Framework Deployment will be without a Vnet"
+    ##create default AKS cluster with node size Standard_D2s_V3
+    echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
+    az aks create \
+        --resource-group $resourceGroup \
+        --name $aksName \
+        --node-count 3 \
+        --service-principal $servicePrincipal \
+        --client-secret $clientSecret \
+        --enable-cluster-autoscaler \
+        --min-count 1 \
+        --max-count 50 \
+        --generate-ssh-keys \
+	    --disable-rbac \
+	    --node-vm-size Standard_D2s_v3 \
+	    --location $location
+
+    if [ $? -ne 0 ]
+        then
+            echo "ERROR: Failed to create aks cluster, error: '${?}'"
+            clean_up
+    fi
 fi
 
 # call the kubernetes install function to deploy kube components
@@ -461,7 +507,6 @@ kube_install
 #####################################################################################
 #Script execution starts here
 #####################################################################################
-
 resourceGroup=""  # Default to empty package
 location=""  # Default to empty target
 
@@ -471,10 +516,10 @@ get_version
 command=$1
 case "$command" in
   # Parse options to the install sub command
-  install )
+install )
     # Process package options
     shift
-        while getopts hg:l:s: opt; do
+        while getopts hg:l:s:v:n: opt; do
                 case ${opt} in
                     (h)
                         display_help
@@ -487,6 +532,12 @@ case "$command" in
                         ;;
                     (s)
                         spname=$OPTARG
+                        ;;
+                    (v)
+                        vnetprefix=$OPTARG
+                        ;;
+                    (n)
+                        subnetprefix=$OPTARG
                         ;;
                     (*)
                         display_help
@@ -503,16 +554,32 @@ case "$command" in
         done
     shift $((OPTIND -1))
 
-    if [[ -z ${resourceGroup}  ]] || [[ -z ${location}  ]] || [[ -z ${spname}  ]] ;
-        then
-            echo "ERROR:Resource Group,location and spname must be provided"
-            exit 1
+    if [[ -z ${resourceGroup}  ]] || [[ -z ${location}  ]] || [[ -z ${spname}  ]] ;then
+        echo "ERROR:Resource Group,location and spname must be provided"
+        exit 1
+    else
+        if [[ ! -z ${vnetprefix} ]]; then
+            if [[ -z ${subnetprefix} ]]; then
+                echo "ERROR:  subnet must be provided when vnet is provided"
+                exit 1
+            else
+                dt=$(date +"%d/%m %T")
+                echo $dt" INFO: Starting Framework deployment ..."
+                echo "INFO: VNET based deployment will be used"
+                echo "INFO: The resource group will be:" $resourceGroup 
+                echo "INFO: The location of the deployment will be:" $location
+                echo "INFO: The Service Principal name used will be...." $spname
+                echo "INFO: Vnet address prefix will be: "$vnetprefix
+                echo "INFO: Subnet address prefix will be: "$subnetprefix
+            fi
         else
             dt=$(date +"%d/%m %T")
             echo $dt" INFO: Starting Framework deployment ..."
+            echo "INFO: Non Vnet deployment will be used"
             echo "INFO: The resource group will be:" $resourceGroup 
             echo "INFO: The location of the deployment will be:" $location
             echo "INFO: The Service Principal name used will be...." $spname
+        fi
     fi
 
     #check for resource group and create if not existing
@@ -522,9 +589,9 @@ case "$command" in
     dt=$(date +"%d/%m %T")
     echo $dt" INFO: Framework install completed successfully...."
     exit 0
-    ;;
+;;
 
-    kube_deploy )
+kube_deploy )
     # Process package options
     shift
         while getopts hg:c: opt; do
@@ -571,9 +638,9 @@ case "$command" in
     dt=$(date +"%d/%m %T")
     echo $dt" INFO: Kubernetes only deployment completed successfully...."
     exit 0
-    ;;
+;;
 
-    delete )
+delete )
         echo "this will remove the deployment....."
         read -p "Are you sure? " -n 1 -r
         echo ""
@@ -623,9 +690,9 @@ case "$command" in
         dt=$(date +"%d/%m %T")
         echo $dt" INFO: Framework deployment completed successfully...."
         exit 0
-        ;;
+;;
 
-    validate )
+validate )
         echo "This option will validate your subscription / environment to support the installation of the test framework..."
             # Process package options
         shift
@@ -676,11 +743,11 @@ case "$command" in
     #spname check
     sp_check
     exit 0
-    ;;
+;;
 
-    * ) 
+* ) 
         display_help
-    ;;
+;;
 esac
 
 
