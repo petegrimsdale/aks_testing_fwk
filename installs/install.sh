@@ -364,8 +364,8 @@ acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
 if [ $acrCheck == "true" ]; then
     echo "INFO:Container registry [ $acrName ] does not exist...."
     echo "INFO:Creating container registry..."
-    echo "DEBUG: az acr create --name "$acrName" --resource-group "$resourceGroup" --sku Basic --admin-enabled true"
-    az acr create --name $acrName --resource-group $resourceGroup --sku Basic --admin-enabled true
+    echo "DEBUG: az acr create --name "$acrName" --resource-group "$resourceGroup" --sku Basic"
+    az acr create --name $acrName --resource-group $resourceGroup --sku Basic 
     if [ $? -ne 0 ]
         then
             echo "ERROR: Failed to create container registry in the resource group [ $resourceGroup ] "
@@ -439,9 +439,10 @@ az aks create \
     --min-count 1 \
     --max-count 50 \
     --generate-ssh-keys \
-	--disable-rbac \
-	--node-vm-size Standard_D2s_v3 \
-	--location $location
+    --node-vm-size Standard_D2s_v3 \
+    --location $location
+   #--disable-rbac \
+   #--attach-acr $acrName \ #Uncomment if your ACR is in a different RG
 
 if [ $? -ne 0 ]
     then
@@ -575,7 +576,7 @@ case "$command" in
 
     delete )
         echo "this will remove the deployment....."
-        read -p "Are you sure? " -n 1 -r
+        read -p "Are you sure? (press "y" for yes)" -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]];
         then
@@ -682,7 +683,3 @@ case "$command" in
         display_help
     ;;
 esac
-
-
-
-

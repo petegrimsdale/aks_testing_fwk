@@ -7,14 +7,14 @@ This Jmeter based testing framework provides a scalable test harness to support 
 
 ![Test Framework Architecure](./images/testfwk.png "Framework Architecture")
 
-The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and Grafana.  The framework builds on Apache Jmeter's distributed load testing model ( (https://jmeter.apache.org/usermanual/jmeter_distributed_testing_step_by_step.html)) whereby tests are initiated from a Jmeter master node(1) which then distributes the test script to the slaves (jmeter instances), the slaves are nodes/pods that carry out the load testing. Note: The test plan is replicated to all slaves so consideration of the overall client load is needed.  For example, a test plan with 100 client threads distributed to 5 jmeter slaves will result in 500 active clients. You will use a distributed architecture like this if you want to carry out an intensive load test which can simulate hundreds and thousands of simultaneous users, this is the scenario we will be looking at in this blog post.The results of any load testing are sent to the InfluxDB using the built in BackEndLister available in Jmeter (see test plan construction below) and Grafana is used to render this data in an easily consumable dashboard.
+The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and Grafana.  The framework builds on [Apache Jmeter's distributed load testing model](https://jmeter.apache.org/usermanual/jmeter_distributed_testing_step_by_step.html) whereby tests are initiated from a Jmeter master node(1) which then distributes the test script to the slaves (jmeter instances), the slaves are nodes/pods that carry out the load testing. Note: The test plan is replicated to all slaves so consideration of the overall client load is needed.  For example, a test plan with 100 client threads distributed to 5 jmeter slaves will result in 500 active clients. You will use a distributed architecture like this if you want to carry out an intensive load test which can simulate hundreds and thousands of simultaneous users, this is the scenario we will be looking at in this blog post.The results of any load testing are sent to the InfluxDB using the built in BackEndLister available in Jmeter (see test plan construction below) and Grafana is used to render this data in an easily consumable dashboard.
 
 
 ## Installation
 
 ### Pre-requisities
-- az cli (version 2.0.80 or above) is installed (assumes use of linux based client not powershell) 
-- kubectl is installed ( https://kubernetes.io/docs/tasks/tools/install-kubectl/ )
+- [az cli (version 2.0.80 or above)](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-apt?view=azure-cli-latest) is installed (assumes use of linux based client not powershell, [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10) can be used instead)
+- [kubectl is installed](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 
 
 1. Clone the github repo 
