@@ -12,6 +12,7 @@ subscriptionId=$(az account show --query id --output tsv)
 logfile=./testfwklog
 exec > >(tee -ai $logfile) 2>&1
 
+rgcreate=false
 dt=$(date)
 echo "### Logging Info ###"
 echo "INFO: Starting installation action at:"$dt
@@ -43,6 +44,7 @@ rg_check() {
         if ! az group show --name "$resourceGroup" &>/dev/null; then
             echo "INFO:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
             echo "INFO:Creating [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription..."
+            rgcreate=true
 
             # Create the resource group
             if az group create --name "$resourceGroup" --location "$location" 1>/dev/null; then
@@ -53,6 +55,7 @@ rg_check() {
             fi
         else
             echo "INFO:[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
+            rgcreate=false
         fi
     else
         if ! az group show --name "$resourceGroup" &>/dev/null; then
@@ -70,11 +73,13 @@ display_help() {
     echo
     echo "   command    install / validate"
     echo "   Full Testing framework install - creates rg, ACR, AKS cluster and deployment"
-    echo "   -g		Resource Group Name."
-    echo "   -l		Location."
-    echo "   -s		spname"
-    echo "   -v		vnet address prefix (optional)"
-    echo "   -n		subnet address prefix (optional)"
+    echo "   -g		        Resource Group Name."
+    echo "   -l		        Location."
+    echo "   -s		        spname"
+    echo "   --vnetname		vnet name (optional)"
+    echo "   --subnetname	subnet name (optional)"
+    echo "   -v		        vnet address prefix (optional)"
+    echo "   -n		        subnet address prefix (optional)"
     echo
     echo "   command    delete"
     echo "   -g		Resource Group Name."
@@ -310,6 +315,67 @@ echo "#########################################"
 
 }
 
+
+vnet_check(){
+    #check to see whether vnet exists or needs to be created
+    #assumes resource group creation means no vnet
+
+    if [ $rgcreate == "false" ]; then
+        echo "INFO: resource group exists - check for existing Vnet"
+        VNET_ID=$(az network vnet show --resource-group $resourceGroup --name $vnetName --query id -o tsv)
+        echo "vnetid"$VNET_ID
+        if [[ -z ${VNET_ID}  ]]; then
+            echo "INFO: VNET does not exist, Vnet will be created"
+            #create vnet
+            if az network vnet create --resource-group $resourceGroup \
+                                     --name $vnetName \
+                                     --address-prefixes $vnetprefix \
+                                     --subnet-name $subnetName \
+                                     --subnet-prefix $subnetprefix \
+                                     1>/dev/null; then
+                echo "INFO: VNET successfully created"
+                VNET_ID=$(az network vnet show --resource-group $resourceGroup --name $vnetName --query id -o tsv)
+                SUBNET_ID=$(az network vnet subnet show --resource-group $resourceGroup --vnet-name $vnetName --name $subnetName --query id -o tsv)
+            else
+                echo "ERROR: Failed to created Vnet with supplied parameters"
+                exit 1
+            fi
+        else
+            echo "INFO:  VNET already exists - re-use this vnet"
+            SUBNET_ID=$(az network vnet subnet show --resource-group $resourceGroup --vnet-name $vnetName --name $subnetName --query id -o tsv)
+            if [[ -z ${SUBNET_ID} ]]; then
+                echo "INFO: Subnet $subnetName not found...adding"
+                if az network vnet subnet create --address-prefixes $subnetprefix --name $subnetName --resource-group $resourceGroup --vnet-name $vnetName 1>/dev/null; then
+                    echo "INFO: subent $subnetName created successfully"
+                    SUBNET_ID=$(az network vnet subnet show --resource-group $resourceGroup --vnet-name $vnetName --name $subnetName --query id -o tsv)
+                else
+                echo "ERROR: Subnet could not be created"
+                exit 1
+                fi
+            fi
+        fi
+    else
+        echo "INFO: Creating required Vnet and Subnet"
+        if az network vnet create --resource-group $resourceGroup \
+                                     --name $vnetName \
+                                     --address-prefixes $vnetprefix \
+                                     --subnet-name $subnetName \
+                                     --subnet-prefix $subnetprefix \
+                                     1>/dev/null; then
+                echo "INFO: VNET successfully created"
+                VNET_ID=$(az network vnet show --resource-group $resourceGroup --name $vnetName --query id -o tsv)
+                SUBNET_ID=$(az network vnet subnet show --resource-group $resourceGroup --vnet-name $vnetName --name $subnetName --query id -o tsv)
+        else
+                echo "ERROR: Failed to created Vnet with supplied parameters"
+                exit 1
+        fi
+    fi
+    echo "INFO: Vnet Id is "$VNET_ID
+    echo "INFO: Subnet Id is "$SUBNET_ID
+
+
+}
+
 fwk_install(){
 
 #default settings
@@ -433,25 +499,14 @@ else
     echo "INFO:reporter:lastest already existing in acr...."
 fi
 
-if [ ! -z ${vnetprefix} ] && [ ! -z ${subnetprefix} ]; then
-##create vnet and subnet if required for deployment
-    az network vnet create --name testfwkvnet \
-                         -g $resourceGroup \
-                         -l $location \
-                         --address-prefixes $vnetprefix \
-                         --subnet-name testfwksubnet \
-                         --subnet-prefixes $subnetprefix
-    if [ $? -ne 0 ]
-    then
-        echo "ERROR: Failed to create required vnet"
-        exit 1
-    else
-        echo "INFO: VNET and Subnet created successfully"
-        subnetId=$(az network vnet show --name testfwkvnet -g $resourceGroup -o tsv --query subnets[0].id)
-        echo "INFO: Creating AKS cluster with Vnet deployment"
-        ##create default AKS cluster with node size Standard_D2s_V3
-        echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
-        az aks create \
+if [ ! -z ${vnetName} ]; then
+    ## assign role to SP
+    az role assignment create --assignee $servicePrincipal --scope $VNET_ID --role Contributor
+    ##create vnet and subnet if required for deployment
+    echo "INFO: Creating AKS cluster with Vnet deployment"
+    ##create default AKS cluster with node size Standard_D2s_V3
+    echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
+    az aks create \
             --resource-group $resourceGroup \
             --name $aksName \
             --node-count 3 \
@@ -464,13 +519,12 @@ if [ ! -z ${vnetprefix} ] && [ ! -z ${subnetprefix} ]; then
 	        --disable-rbac \
 	        --node-vm-size Standard_D2s_v3 \
 	        --location $location \
-            --vnet-subnet-id $subnetId
+            --vnet-subnet-id $SUBNET_ID
 
-        if [ $? -ne 0 ]
-        then
-            echo "ERROR: Failed to create aks cluster, error: '${?}'"
-            clean_up
-        fi
+    if [ $? -ne 0 ]
+    then
+        echo "ERROR: Failed to create aks cluster, error: '${?}'"
+        clean_up
     fi
 else
     echo "INFO: Framework Deployment will be without a Vnet"
@@ -616,11 +670,14 @@ install )
             echo "INFO: The Service Principal name used will be...." $spname
         fi
     fi
-    # for testing only enable next 2 lines
-    echo "exiting test"
-    exit 1
+
     #check for resource group and create if not existing
     rg_check
+    #check vnet setup/requrirement if provided
+    if [ $vnetName ]; then
+        echo "INFO: Vnet setup"
+        vnet_check
+    fi
     #create sp and AKS cluster
     fwk_install
     dt=$(date +"%d/%m %T")
