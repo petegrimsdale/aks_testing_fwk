@@ -736,7 +736,7 @@ kube_deploy )
 
 delete )
         echo "this will remove the deployment....."
-        read -p "Are you sure? " -n 1 -r
+        read -p "Are you sure? (press "y" for yes)" -n 1 -r
         echo ""
         if [[ $REPLY =~ ^[Yy]$ ]];
         then
