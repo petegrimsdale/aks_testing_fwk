@@ -28,8 +28,10 @@ get_version(){
     #echo "INFO:Version Date: 30/01/2020"
     #echo "INFO:Installer version 1.3"
     #echo "INFO:Version Date: 6/02/2020"
-    echo "INFO:Installer version 1.4"
-    echo "INFO:Version Date: 20/02/2020"
+    #echo "INFO:Installer version 1.4"
+    #echo "INFO:Version Date: 20/02/2020"
+    echo "INFO:Installer version 1.5"
+    echo "INFO:Version Date: 08/03/2020"
 }
 
 # Check if the resource group already exists
@@ -431,7 +433,7 @@ else
     echo "INFO:reporter:lastest already existing in acr...."
 fi
 
-if [ -n ${vnetprefix} ] && [ -n ${subnetprefix}]; then
+if [ ! -z ${vnetprefix} ] && [ ! -z ${subnetprefix} ]; then
 ##create vnet and subnet if required for deployment
     az network vnet create --name testfwkvnet \
                          -g $resourceGroup \
@@ -519,7 +521,7 @@ case "$command" in
 install )
     # Process package options
     shift
-        while getopts hg:l:s:v:n: opt; do
+        while getopts hg:l:s:v:n:-: opt; do
                 case ${opt} in
                     (h)
                         display_help
@@ -539,6 +541,20 @@ install )
                     (n)
                         subnetprefix=$OPTARG
                         ;;
+                    (-)
+						case "${OPTARG}" in
+                			vnetname)
+                    			vnetName="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    			;;
+                			subnetname)
+                    			subnetName="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    			;;
+							*)
+								echo "-- option not supported"
+                                display_help
+							;;
+						esac
+                    ;;
                     (*)
                         display_help
                         ;;
@@ -558,19 +574,38 @@ install )
         echo "ERROR:Resource Group,location and spname must be provided"
         exit 1
     else
-        if [[ ! -z ${vnetprefix} ]]; then
-            if [[ -z ${subnetprefix} ]]; then
-                echo "ERROR:  subnet must be provided when vnet is provided"
+        if [[ ! -z ${vnetName} ]]; then
+            if [[ -z ${subnetName} ]]; then
+                echo "ERROR:  subnet name must be provided when VnetName is provided"
                 exit 1
             else
-                dt=$(date +"%d/%m %T")
-                echo $dt" INFO: Starting Framework deployment ..."
-                echo "INFO: VNET based deployment will be used"
-                echo "INFO: The resource group will be:" $resourceGroup 
-                echo "INFO: The location of the deployment will be:" $location
-                echo "INFO: The Service Principal name used will be...." $spname
-                echo "INFO: Vnet address prefix will be: "$vnetprefix
-                echo "INFO: Subnet address prefix will be: "$subnetprefix
+                if [[ ! -z ${vnetprefix} ]]; then
+                    if [[ -z ${subnetprefix} ]]; then
+                        echo "ERROR:  subnet prefix must be provided when vnet prefix is provided"
+                        exit 1
+                    else
+                        dt=$(date +"%d/%m %T")
+                        echo $dt" INFO: Starting Framework deployment ..."
+                        echo "INFO: Non Vnet deployment will be used"
+                        echo "INFO: The resource group will be:" $resourceGroup 
+                        echo "INFO: The location of the deployment will be:" $location
+                        echo "INFO: The Service Principal name used will be...." $spname
+                        echo "INFO: VnetName will be "$vnetName
+                        echo "INFO: subnetName will be "$subnetName
+                        echo "INFO: Vnet prefix will be "$vnetprefix
+                        echo "INFO: Subnet prefix will be "$subnetprefix
+
+                    fi
+                else
+                        dt=$(date +"%d/%m %T")
+                        echo $dt" INFO: Starting Framework deployment ..."
+                        echo "INFO: Non Vnet deployment will be used"
+                        echo "INFO: The resource group will be:" $resourceGroup 
+                        echo "INFO: The location of the deployment will be:" $location
+                        echo "INFO: The Service Principal name used will be...." $spname
+                        echo "INFO: VnetName will be "$vnetName
+                        echo "INFO: subnetName will be "$subnetName  
+                fi               
             fi
         else
             dt=$(date +"%d/%m %T")
@@ -581,7 +616,9 @@ install )
             echo "INFO: The Service Principal name used will be...." $spname
         fi
     fi
-
+    # for testing only enable next 2 lines
+    echo "exiting test"
+    exit 1
     #check for resource group and create if not existing
     rg_check
     #create sp and AKS cluster
