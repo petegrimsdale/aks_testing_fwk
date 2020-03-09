@@ -162,3 +162,9 @@ In some instances there may be a scenario where the remote slave cannot be conta
 ```
 kubectl get pods -o wide |grep {ip address}
 ```
+
+
+## References
+https://kubernauts.io
+
+https://jmeter.apache.org/
