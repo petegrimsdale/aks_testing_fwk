@@ -1,5 +1,7 @@
 # AKS based scalable Jmeter Test Framework with Grafana
 
+### Latest Version: 1.5
+
 ## Introduction
 This Jmeter based testing framework provides a scalable test harness to support load testing of applications using Apache Jmeter<sup>TM</sup>  based test scripts.  The framework excludes support for writing a Jmeter test plan but assumes a test plan in the form of a jmx files is available.  The testing framework utilizes a master Jmeter node with one or more slave nodes used to run the tests.  The deployment assumes a Jmeter backend listener is configured within the test plan to support writing metrics to the Influx database which can then be presented via a Grafana dashboard.  The initial deployment only deploys a single jmeter-slave pod but can be scaled as needed to support the required number of client threads.
 
@@ -34,7 +36,7 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 
         Existing Vnet based deployment
         `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} -vnetname {vnet} -subnetname {subnet}`
-        
+
         New Vnet based deployment
         `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} -vnetname {vnet} -subnetname {subnet} -v {vnet cidr} -n {subnet cidr}`
       
