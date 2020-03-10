@@ -29,7 +29,14 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
         - This will validate the target environment, checking resource group, service principal name and AKS
 
         #### install
+        Non Vnet based deployment
         `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location}`
+
+        Existing Vnet based deployment
+        `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} -vnetname {vnet} -subnetname {subnet}`
+        
+        New Vnet based deployment
+        `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} -vnetname {vnet} -subnetname {subnet} -v {vnet cidr} -n {subnet cidr}`
       
         - This will deploy to the target environment using the resource group and location defined.  It will create the resource group, service principal, Azure Container Registry, build and upload containers for Jmeter Master, Jmeter Slave and reporting, create an AKS cluster and deploy and configure all the elements required to run a test.
 
