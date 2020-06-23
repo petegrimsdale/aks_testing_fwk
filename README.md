@@ -39,13 +39,16 @@ The framework uses a Kubernetes based deployment of Apache Jmeter, InfluxDB and 
 
         New Vnet based deployment
         `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} --vnetname {vnet} --subnetname {subnet} -v {vnet cidr} -n {subnet cidr}`
+
+        Existing VNET with separate resource group for testing framework components
+        `install.sh install -g {resource-group-name} -s {service-principal-name} -l {location} --vnetname {vnet} --subnetname {subnet} --fwkrg {name of resource group}`
       
         - This will deploy to the target environment using the resource group and location defined.  It will create the resource group, service principal, Azure Container Registry, build and upload containers for Jmeter Master, Jmeter Slave and reporting, create an AKS cluster and deploy and configure all the elements required to run a test.
 
         #### delete
-        `install.sh delete -g {resource-group-name} -s {service-principal-name}`
+        `install.sh delete -g {resource-group-name} -s {service-principal-name} --fwkrg {fwk-resource-group}`
        
-        This will remove all resources and the service principal
+        This will remove all resources and the service principal.  Note: If deploying to an alternative resource group with the --fmwkrg option then use this to remove that group
 
         #### kube_deploy
         `install.sh kube_deploy -g {resource-group-name} -c {aks-cluster-name}`

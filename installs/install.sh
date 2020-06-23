@@ -31,8 +31,10 @@ get_version(){
     #echo "INFO:Version Date: 6/02/2020"
     #echo "INFO:Installer version 1.4"
     #echo "INFO:Version Date: 20/02/2020"
-    echo "INFO:Installer version 1.5"
-    echo "INFO:Version Date: 08/03/2020"
+    #echo "INFO:Installer version 1.5"
+    #echo "INFO:Version Date: 08/03/2020"
+    echo "INFO:Installer version 1.6"
+    echo "INFO:Version Date: 22/06/2020"
 }
 
 # Check if the resource group already exists
@@ -57,6 +59,25 @@ rg_check() {
             echo "INFO:[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
             rgcreate=false
         fi
+
+        #check fwkrg
+        if [[ ! -z ${fwkrg} ]]; then
+            if ! az group show --name "$fwkrg" &>/dev/null; then
+                echo "INFO:No [ $fwkrg ] resource group actually exists in the [ $subscriptionId ] subscription"
+                echo "INFO:Creating [ $fwkrg ] resource group in the [ $subscriptionId ] subscription..."
+
+            # Create the resource group
+                if az group create --name "$fwkrg" --location "$location" 1>/dev/null; then
+                    echo "INFO:[ $fwkrg ] resource group successfully created in the [ $subscriptionId ] subscription"
+                else
+                    echo "ERROR:Failed to create [ $fwkrg ] resource group in the [ $subscriptionId ] subscription"
+                    exit 1
+                fi
+            else
+                echo "INFO:[ $fwkrg ] resource group already exists in the [ $subscriptionId ] subscription"
+            fi
+        fi
+
     else
         if ! az group show --name "$resourceGroup" &>/dev/null; then
             echo "INFO:No [ $resourceGroup ] resource group actually exists in the [ $subscriptionId ] subscription"
@@ -64,6 +85,9 @@ rg_check() {
             echo "INFO:[ $resourceGroup ] resource group already exists in the [ $subscriptionId ] subscription"
         fi
     fi
+
+    
+
 }
 
 
@@ -78,12 +102,14 @@ display_help() {
     echo "   -s		        spname"
     echo "   --vnetname		vnet name (optional install only)"
     echo "   --subnetname	subnet name (optional install only)"
+    echo "   --fwkrg        resource group to install test fwk into (optional install only with vnet)"
     echo "   -v		        vnet address prefix (optional install only)"
     echo "   -n		        subnet address prefix (optional install only)"
     echo
     echo "   command    delete"
     echo "   -g		Resource Group Name."
     echo "   -s		spname"
+    echo "   --fwkrg provide the test fwk resource group to delete"
     echo 
     echo "   command    kube_deploy"
     echo "   deploys only the Kubernetes elements to the existing fwk cluster"
@@ -138,11 +164,22 @@ clean_up() {
         exit 1
     else
         echo "INFO: deleting resource group..."
-        if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
-            echo "INFO:[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
+        if [ ! -z $fwkrg ];then
+            if az group delete --name "$fwkrg" -y --no-wait  1>/dev/null; then
+                echo "INFO:[ $fwkrg ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
+            else
+                echo "ERROR: Failed to delete [ $fwkrg ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
+                exit 1
+            fi
         else
-            echo "ERROR: Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
-            exit 1
+            if [ $rgcreate == 'true' ];then
+                if az group delete --name "$resourceGroup" -y --no-wait  1>/dev/null; then
+                    echo "INFO:[ $resourceGroup ] will be deleted from the [ $subscriptionId ] subscription. Please check for full removal"
+                else
+                    echo "ERROR: Failed to delete [ $resourceGroup ] resource group in the [ $subscriptionId ] subscription.  Please delete manually"
+                    exit 1
+                fi
+            fi
         fi
     fi
 
@@ -177,17 +214,32 @@ fi
 kube_install(){
 
 ###get creds
-if az aks get-credentials --resource-group $resourceGroup --name $aksName --overwrite-existing &>/dev/null; then
-    nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
-        if [[ -z {$nodes} ]]; then
-            echo "issue with kubectl setup"
-            exit 1
-        else
-            echo "INFO: kubectl available...."
-        fi
+if [ ! -z $fwkrg ];then
+    if az aks get-credentials --resource-group $fwkrg --name $aksName --overwrite-existing &>/dev/null; then
+        nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
+            if [[ -z {$nodes} ]]; then
+                echo "issue with kubectl setup"
+                exit 1
+            else
+                echo "INFO: kubectl available...."
+            fi
+    else
+        echo "ERROR: Cannot connect to AKS cluster $aksName . Please check the cluster name provided is correct"
+        exit 1
+    fi
 else
-    echo "ERROR: Cannot connect to AKS cluster $aksName . Please check the cluster name provided is correct"
-    exit 1
+    if az aks get-credentials --resource-group $resourceGroup --name $aksName --overwrite-existing &>/dev/null; then
+        nodes=$(kubectl get nodes |awk '/aks-nodepool/ {print $1}')
+            if [[ -z {$nodes} ]]; then
+                echo "issue with kubectl setup"
+                exit 1
+            else
+                echo "INFO: kubectl available...."
+            fi
+    else
+        echo "ERROR: Cannot connect to AKS cluster $aksName . Please check the cluster name provided is correct"
+        exit 1
+    fi
 fi
 
 #check ACR is available
@@ -218,24 +270,41 @@ fi
 #check if already exists
 
 reportingnodepool=0
+if [ ! -z $fwkrg ];then
+    for i in $(az aks nodepool list -g $fwkrg --cluster-name $aksName -o tsv --query [].name)
+    do
+        if [ $i == "reporterpool" ]; then
+            echo "INFO: Reporting Node Pool aready exists"
+            reportingnodepool=1
+        fi
+    done
 
-for i in $(az aks nodepool list -g $resourceGroup --cluster-name $aksName -o tsv --query [].name)
-do
-    if [ $i == "reporterpool" ]; then
-        echo "INFO: Reporting Node Pool aready exists"
-        reportingnodepool=1
+    if [[ $reportingnodepool -eq 0 ]]; then
+        echo "INFO:Adding reporting nodepool..."
+        az aks nodepool add --cluster-name $aksName -g $fwkrg --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
+        reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
+        echo "INFO: Tainting reporting node..."
+        kubectl taint nodes $reporternode sku=reporter:NoSchedule
+        echo "INFO: Tainting reporting node completed..."
     fi
-done
+else
+    for i in $(az aks nodepool list -g $resourceGroup --cluster-name $aksName -o tsv --query [].name)
+    do
+        if [ $i == "reporterpool" ]; then
+            echo "INFO: Reporting Node Pool aready exists"
+            reportingnodepool=1
+        fi
+    done
 
-if [[ $reportingnodepool -eq 0 ]]; then
-    echo "INFO:Adding reporting nodepool..."
-    az aks nodepool add --cluster-name $aksName -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
-    reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
-    echo "INFO: Tainting reporting node..."
-    kubectl taint nodes $reporternode sku=reporter:NoSchedule
-    echo "INFO: Tainting reporting node completed..."
+    if [[ $reportingnodepool -eq 0 ]]; then
+        echo "INFO:Adding reporting nodepool..."
+        az aks nodepool add --cluster-name $aksName -g $resourceGroup --name reporterpool --node-count 1 --node-vm-size Standard_D8s_v3
+        reporternode=$(kubectl get nodes |awk '/aks-reporterpool/ {print $1}')
+        echo "INFO: Tainting reporting node..."
+        kubectl taint nodes $reporternode sku=reporter:NoSchedule
+        echo "INFO: Tainting reporting node completed..."
+    fi
 fi
-
 echo "INFO:Generating yaml files from templates..."
 
 # read the yaml template from a file and substitute the string 
@@ -433,6 +502,26 @@ fi
 
 
 ##create acr to use to store containers
+if [[ ! -z ${fwkrg} ]]; then
+        echo "Info - Using supplied fwk resource group name"
+        acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
+        if [ $acrCheck == "true" ]; then
+            echo "INFO:Container registry [ $acrName ] does not exist...."
+            echo "INFO:Creating container registry..."
+            echo "DEBUG: az acr create --name "$acrName" --resource-group "$fwkrg" --sku Basic --admin-enabled true"
+            az acr create --name $acrName --resource-group $fwkrg --sku Basic --admin-enabled true
+            if [ $? -ne 0 ]
+                then
+                    echo "ERROR: Failed to create container registry in the resource group [ $fwkrg ] "
+                    exit 1
+                else
+                    echo "INFO: Acr $acrName created"
+            fi
+        else
+            echo "Container registry [ $acrName ] already exists...."
+            exit 1
+        fi
+else
 acrCheck=$(az acr check-name --name $acrName -o tsv --query nameAvailable)
 if [ $acrCheck == "true" ]; then
     echo "INFO:Container registry [ $acrName ] does not exist...."
@@ -450,13 +539,16 @@ else
     echo "Container registry [ $acrName ] already exists...."
     exit 1
 fi
+fi
+
+
 
 ##build and push the master,slave and reporter images to acr
 
 
 if ! az acr repository show -n $acrName --image testframework/jmetermaster:latest &>/dev/null; then
     echo "INFO:master image does not exist....creating..."
-    echo "INFO:building jmeter master container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:building jmeter master container and pushing to [ $acrName ] "
     az acr build -t testframework/jmetermaster:latest -f ../master/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
@@ -471,7 +563,7 @@ fi
 
 if ! az acr repository show -n $acrName --image testframework/jmeterslave:latest &>/dev/null; then
     echo "INFO:slave image does not exist....creating..."
-    echo "INFO:building jmeter slave container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:building jmeter slave container and pushing to [ $acrName ]"
     az acr build -t testframework/jmeterslave:latest -f ../slave/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
@@ -486,7 +578,7 @@ fi
 
 if ! az acr repository show -n $acrName --image testframework/reporter:latest &>/dev/null; then
     echo "INFO:slave image does not exist....creating..."
-    echo "INFO:building jmeter reporter container and pushing to [ $acrName ] in resource group [ $resourceGroup ]"
+    echo "INFO:building jmeter reporter container and pushing to [ $acrName ]"
     az acr build -t testframework/reporter:latest -f ../reporter/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
@@ -506,25 +598,48 @@ if [ ! -z ${vnetName} ]; then
     echo "INFO: Creating AKS cluster with Vnet deployment"
     ##create default AKS cluster with node size Standard_D2s_V3
     echo "INFO:Creating AKS cluster $aksName with D2s_v3 nodes...."
-    az aks create \
-            --resource-group $resourceGroup \
-            --name $aksName \
-            --node-count 3 \
-            --service-principal $servicePrincipal \
-            --client-secret $clientSecret \
-            --enable-cluster-autoscaler \
-            --min-count 1 \
-            --max-count 50 \
-            --generate-ssh-keys \
-	        --disable-rbac \
-	        --node-vm-size Standard_D2s_v3 \
-	        --location $location \
-            --vnet-subnet-id $SUBNET_ID
+    if [ ! -z ${fwkrg} ]; then
+        az aks create \
+                --resource-group $fwkrg \
+                --name $aksName \
+                --node-count 3 \
+                --service-principal $servicePrincipal \
+                --client-secret $clientSecret \
+                --enable-cluster-autoscaler \
+                --min-count 1 \
+                --max-count 50 \
+                --generate-ssh-keys \
+                --disable-rbac \
+                --node-vm-size Standard_D2s_v3 \
+                --location $location \
+                --vnet-subnet-id $SUBNET_ID
 
-    if [ $? -ne 0 ]
-    then
-        echo "ERROR: Failed to create aks cluster, error: '${?}'"
-        clean_up
+        if [ $? -ne 0 ]
+        then
+            echo "ERROR: Failed to create aks cluster, error: '${?}'"
+            clean_up
+        fi
+    else
+        az aks create \
+                --resource-group $resourceGroup \
+                --name $aksName \
+                --node-count 3 \
+                --service-principal $servicePrincipal \
+                --client-secret $clientSecret \
+                --enable-cluster-autoscaler \
+                --min-count 1 \
+                --max-count 50 \
+                --generate-ssh-keys \
+                --disable-rbac \
+                --node-vm-size Standard_D2s_v3 \
+                --location $location \
+                --vnet-subnet-id $SUBNET_ID
+
+        if [ $? -ne 0 ]
+        then
+            echo "ERROR: Failed to create aks cluster, error: '${?}'"
+            clean_up
+        fi
     fi
 else
     echo "INFO: Framework Deployment will be without a Vnet"
@@ -603,6 +718,9 @@ install )
                 			subnetname)
                     			subnetName="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
                     			;;
+                            fwkrg)
+                    			fwkrg="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    			;;
 							*)
 								echo "-- option not supported"
                                 display_help
@@ -640,7 +758,7 @@ install )
                     else
                         dt=$(date +"%d/%m %T")
                         echo $dt" INFO: Starting Framework deployment ..."
-                        echo "INFO: Non Vnet deployment will be used"
+                        echo "INFO: Vnet deployment will be used"
                         echo "INFO: The resource group will be:" $resourceGroup 
                         echo "INFO: The location of the deployment will be:" $location
                         echo "INFO: The Service Principal name used will be...." $spname
@@ -741,7 +859,7 @@ delete )
         if [[ $REPLY =~ ^[Yy]$ ]];
         then
             shift
-            while getopts hg:s: opt; do
+            while getopts hg:s:-: opt; do
                 case ${opt} in
                     (h)
                         display_help
@@ -752,6 +870,17 @@ delete )
                     (s)
                         spname=$OPTARG
                         ;;
+                    (-)
+						case "${OPTARG}" in
+                            fwkrg)
+                    			fwkrg="${!OPTIND}"; OPTIND=$(( $OPTIND + 1 ))
+                    			;;
+							*)
+								echo "-- option not supported"
+                                display_help
+							;;
+						esac
+                    ;;
                     (*)
                         display_help
                         ;;
@@ -772,9 +901,15 @@ delete )
                 echo "Resource Group and spname must be provided"
                 exit 1
             else
-                echo "the resource group to delete will be: " $resourceGroup
-                echo "spname to be deleted is: "$spname
-                echo ""
+                if [ ! -z $fwkrg ];then
+                    echo "the resource group to delete will be: " $fwkrg
+                    echo "spname to be deleted is: "$spname
+                    echo ""
+                else
+                    echo "the resource group to delete will be: " $resourceGroup
+                    echo "spname to be deleted is: "$spname
+                    echo ""
+                fi
             fi
         echo "deleting !"
         clean_up
