@@ -906,6 +906,7 @@ delete )
                     echo "spname to be deleted is: "$spname
                     echo ""
                 else
+                    rgcreate=true
                     echo "the resource group to delete will be: " $resourceGroup
                     echo "spname to be deleted is: "$spname
                     echo ""
