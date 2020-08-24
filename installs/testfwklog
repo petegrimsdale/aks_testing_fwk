@@ -1,0 +1,91 @@
+### Logging Info ###
+INFO: Starting installation action at:Mon Aug 24 12:08:11 BST 2020
+INFO:Installer version 1.6
+INFO:Version Date: 22/06/2020
+24/08 12:08:11 INFO: Starting Framework deployment ...
+INFO: Non Vnet deployment will be used
+INFO: The resource group will be: rg-dev-fwk
+INFO: The location of the deployment will be: westeurope
+INFO: The Service Principal name used will be.... fwksp
+Checking if [ rg-dev-fwk ] resource group actually exists in the [f3a3b160-1d09-4e35-81d7-2f2f1461d084] subscription...
+INFO:No [ rg-dev-fwk ] resource group actually exists in the [ f3a3b160-1d09-4e35-81d7-2f2f1461d084 ] subscription
+INFO:Creating [ rg-dev-fwk ] resource group in the [ f3a3b160-1d09-4e35-81d7-2f2f1461d084 ] subscription...
+INFO:[ rg-dev-fwk ] resource group successfully created in the [ f3a3b160-1d09-4e35-81d7-2f2f1461d084 ] subscription
+INFO: suffix used is: 797b4
+Service Principal does not exist....
+Creating Service Principal...
+Changing "fwksp" to a valid URI of "http://fwksp", which is the required format used for service principal names
+Creating a role assignment under the scope of "/subscriptions/f3a3b160-1d09-4e35-81d7-2f2f1461d084"
+INFO:Service Principal credentials have been created.....
+INFO:Container registry [ testframeworkacr797b4 ] does not exist....
+INFO:Creating container registry...
+DEBUG: az acr create --name testframeworkacr797b4 --resource-group rg-dev-fwk --sku Basic --admin-enabled true
+{
+  "adminUserEnabled": true,
+  "creationDate": "2020-08-24T11:08:28.342331+00:00",
+  "dataEndpointEnabled": false,
+  "dataEndpointHostNames": [],
+  "encryption": {
+    "keyVaultProperties": null,
+    "status": "disabled"
+  },
+  "id": "/subscriptions/f3a3b160-1d09-4e35-81d7-2f2f1461d084/resourceGroups/rg-dev-fwk/providers/Microsoft.ContainerRegistry/registries/testframeworkacr797b4",
+  "identity": null,
+  "location": "westeurope",
+  "loginServer": "testframeworkacr797b4.azurecr.io",
+  "name": "testframeworkacr797b4",
+  "networkRuleSet": null,
+  "policies": {
+    "quarantinePolicy": {
+      "status": "disabled"
+    },
+    "retentionPolicy": {
+      "days": 7,
+      "lastUpdatedTime": "2020-08-24T11:08:30.327459+00:00",
+      "status": "disabled"
+    },
+    "trustPolicy": {
+      "status": "disabled",
+      "type": "Notary"
+    }
+  },
+  "privateEndpointConnections": [],
+  "provisioningState": "Succeeded",
+  "publicNetworkAccess": "Enabled",
+  "resourceGroup": "rg-dev-fwk",
+  "sku": {
+    "name": "Basic",
+    "tier": "Basic"
+  },
+  "status": null,
+  "storageAccount": null,
+  "tags": {},
+  "type": "Microsoft.ContainerRegistry/registries"
+}
+INFO: Acr testframeworkacr797b4 created
+INFO:master image does not exist....creating...
+INFO:building jmeter master container and pushing to [ testframeworkacr797b4 ] 
+Packing source code into tar to upload...
+Uploading archived source code from '/tmp/build_archive_9c31359eafe84518bcac3682e0c41473.tar.gz'...
+Sending context (8.450 KiB) to registry: testframeworkacr797b4...
+Queued a build with ID: cb1
+Waiting for an agent...
+2020/08/24 11:08:36 Downloading source code...
+2020/08/24 11:08:38 Finished downloading source code
+2020/08/24 11:08:38 Using acb_vol_5ef197fd-40be-49d2-90a2-ead9e8b6c97f as the home volume
+2020/08/24 11:08:38 Setting up Docker configuration...
+2020/08/24 11:08:39 Successfully set up Docker configuration
+2020/08/24 11:08:39 Logging in to registry: testframeworkacr797b4.azurecr.io
+2020/08/24 11:08:40 Successfully logged into testframeworkacr797b4.azurecr.io
+2020/08/24 11:08:40 Executing step ID: build. Timeout(sec): 28800, Working directory: '', Network: ''
+2020/08/24 11:08:40 Scanning for dependencies...
+2020/08/24 11:08:41 Successfully scanned dependencies
+2020/08/24 11:08:41 Launching container with name: build
+Sending build context to Docker daemon  48.13kB
+Error response from daemon: Dockerfile parse error line 1: unknown instruction: `#VERSION
+2020/08/24 11:08:42 Container failed during run: build. No retries remaining.
+failed to run step ID: build: exit status 1
+
+Run ID: cb1 failed after 7s. Error: failed during run, err: exit status 1
+Run failed
+ERROR:Failed to build and push master container error: '0'

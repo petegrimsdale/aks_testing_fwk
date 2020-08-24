@@ -1,5 +1,5 @@
-`#version 2.0
-#added plugin support
+# version 2.0
+# added plugin support
 
 FROM openjdk:8-jdk-slim
 		

@@ -1,5 +1,5 @@
-#Version 2.0
-#Added plugin support
+# Version 2.0
+# Added plugin support
 FROM openjdk:8-jdk-slim
 		
 ARG JMETER_VERSION=5.2.1
