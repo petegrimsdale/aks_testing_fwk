@@ -11,7 +11,7 @@ display_help() {
     echo
     echo "   This script provides the ability to update the container images "
     echo "   A updated image version will be pushed to the acr in the resource group provided"
-    echo "   Use update.sh -g <resource group name    "
+    echo "   Use update.sh -g <resource group name> -n <aksname>    "
     echo "   Note: This should be the resource group containing the acr being used for the framework"
     exit 0
 }
@@ -64,7 +64,7 @@ echo "INFO: $version will be added to acr"
 
 #Update slave container
 echo "INFO:building updated jmeter slave container and pushing to [ $acrName ]"
-az acr build -t jmeterslave:latest -t jmeterslave:$version -f ../slave/Dockerfile  -r $acrName .
+az acr build -t testframework/jmeterslave:latest -t testframework/jmeterslave:$version -f ../slave/Dockerfile  -r $acrName .
 if [ $? -ne 0 ]
 then
     echo "ERROR:Failed to build and push slave error: '${?}'"
@@ -75,7 +75,7 @@ fi
 
 #update master container
 echo "INFO:building updated jmeter master container and pushing to [ $acrName ]"
-az acr build -t jmetermaster:latest -t jmetermaster:$version -f ../master/Dockerfile  -r $acrName .
+az acr build -t testframework/jmetermaster:latest -t testframework/jmetermaster:$version -f ../master/Dockerfile  -r $acrName .
 if [ $? -ne 0 ]
 then
     echo "ERROR:Failed to build and push master error: '${?}'"
@@ -95,6 +95,26 @@ if az aks get-credentials --resource-group $resourceGroup --name $aksName --over
            exit 1
         else
             echo "INFO: kubectl available...."
+            echo "INFO: Updating jmeter slaves to container version "$version
+            kubectl set image deployment/jmeter-slaves jmslave=$acrName.azurecr.io/testframework/jmeterslave:$version
+            if [ $? -ne 0 ]
+            then
+                echo "ERROR:Failed to update slave deployment error: '${?}'"
+                exit 1
+            else
+                echo  "INFO:jmeter slave deployment is rolling container updates...."
+            fi
+            echo "INFO: Updating jmeter master to container version "$version
+            kubectl set image deployment/jmeter-master jmmaster=$acrName.azurecr.io/testframework/jmetermaster:$version
+            if [ $? -ne 0 ]
+            then
+                echo "ERROR:Failed to update master deployment error: '${?}'"
+                exit 1
+            else
+                echo  "INFO:jmeter master deployment is rolling container updates...."
+            fi
+
+
         fi
 else
     echo "ERROR: Cannot connect to AKS cluster $aksName . Please check the cluster name provided is correct"

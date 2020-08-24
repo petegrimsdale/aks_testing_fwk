@@ -16,8 +16,9 @@ ENV JMETER_HOME /jmeter/apache-jmeter-$JMETER_VERSION/
 ENV JMETER_PLUGINS_MANAGER_VERSION 1.4
 ENV CMDRUNNER_VERSION 2.2
 ENV PATH $JMETER_HOME/bin:$PATH
+ENV AZURE_PLUGIN_VERSION 0.2.3
 
-RUN   mkdir /jmeter \
+RUN  mkdir /jmeter \
 && cd /jmeter/ \
 && wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-$JMETER_VERSION.tgz \
 && tar -xzf apache-jmeter-$JMETER_VERSION.tgz \
@@ -26,7 +27,7 @@ RUN   mkdir /jmeter \
 && curl --location --output ${JMETER_HOME}/lib/cmdrunner-${CMDRUNNER_VERSION}.jar http://search.maven.org/remotecontent?filepath=kg/apc/cmdrunner/${CMDRUNNER_VERSION}/cmdrunner-${CMDRUNNER_VERSION}.jar \
 && java -cp ${JMETER_HOME}/lib/ext/jmeter-plugins-manager-${JMETER_PLUGINS_MANAGER_VERSION}.jar org.jmeterplugins.repository.PluginManagerCMDInstaller \
 && PluginsManagerCMD.sh install \
-jmeter.backendlistener.azure=0.2.2 \
+jmeter.backendlistener.azure=${AZURE_PLUGIN_VERSION} \
 && jmeter --version \
 && PluginsManagerCMD.sh status 
 

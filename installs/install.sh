@@ -33,8 +33,10 @@ get_version(){
     #echo "INFO:Version Date: 20/02/2020"
     #echo "INFO:Installer version 1.5"
     #echo "INFO:Version Date: 08/03/2020"
-    echo "INFO:Installer version 1.6"
-    echo "INFO:Version Date: 22/06/2020"
+    #echo "INFO:Installer version 1.6"
+    #echo "INFO:Version Date: 22/06/2020"
+    echo "INFO:Installer version 1.7"
+    echo "INFO:Version Date: 24/08/2020"
 }
 
 # Check if the resource group already exists
@@ -541,15 +543,17 @@ else
 fi
 fi
 
-
+#version number
+version=`cat VERSION`
+echo "INFO: $version will be added to acr"
 
 ##build and push the master,slave and reporter images to acr
-
+version=
 
 if ! az acr repository show -n $acrName --image testframework/jmetermaster:latest &>/dev/null; then
     echo "INFO:master image does not exist....creating..."
     echo "INFO:building jmeter master container and pushing to [ $acrName ] "
-    az acr build -t testframework/jmetermaster:latest -f ../master/Dockerfile -r $acrName .
+    az acr build -t testframework/jmetermaster:latest -t testframework/jmetermaster:$version -f ../master/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
         echo "ERROR:Failed to build and push master container error: '${?}'"
@@ -564,7 +568,7 @@ fi
 if ! az acr repository show -n $acrName --image testframework/jmeterslave:latest &>/dev/null; then
     echo "INFO:slave image does not exist....creating..."
     echo "INFO:building jmeter slave container and pushing to [ $acrName ]"
-    az acr build -t testframework/jmeterslave:latest -f ../slave/Dockerfile -r $acrName .
+    az acr build -t testframework/jmeterslave:latest -t testframework/jmetermaster:$version -f ../slave/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
         echo "ERROR:Failed to build and push slave error: '${?}'"
@@ -579,7 +583,7 @@ fi
 if ! az acr repository show -n $acrName --image testframework/reporter:latest &>/dev/null; then
     echo "INFO:slave image does not exist....creating..."
     echo "INFO:building jmeter reporter container and pushing to [ $acrName ]"
-    az acr build -t testframework/reporter:latest -f ../reporter/Dockerfile -r $acrName .
+    az acr build -t testframework/reporter:latest -t testframework/jmetermaster:$version -f ../reporter/Dockerfile -r $acrName .
     if [ $? -ne 0 ]
     then
         echo "ERROR:Failed to build and push slave error: '${?}'"

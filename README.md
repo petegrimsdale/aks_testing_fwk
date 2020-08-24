@@ -1,9 +1,15 @@
 # AKS based scalable Jmeter Test Framework with Grafana
 
-### Latest Version: 1.5
+### Latest Version: 1.7
+
+## Updates in Version 1.7 ##
+- Addition of Azure Monitor Backend Listener Plugin
+- Ability to update Jmeter Master and Slave images and update the deployment
+
+
 
 ## Introduction
-This Jmeter based testing framework provides a scalable test harness to support load testing of applications using Apache Jmeter<sup>TM</sup>  based test scripts.  The framework excludes support for writing a Jmeter test plan but assumes a test plan in the form of a jmx files is available.  The testing framework utilizes a master Jmeter node with one or more slave nodes used to run the tests.  The deployment assumes a Jmeter backend listener is configured within the test plan to support writing metrics to the Influx database which can then be presented via a Grafana dashboard.  The initial deployment only deploys a single jmeter-slave pod but can be scaled as needed to support the required number of client threads.
+This Jmeter based testing framework provides a scalable test harness to support load testing of applications using Apache Jmeter<sup>TM</sup>  based test scripts.  The framework excludes support for writing a Jmeter test plan but assumes a test plan in the form of a jmx files is available.  The testing framework utilizes a master Jmeter node with one or more slave nodes used to run the tests.  The deployment assumes a Jmeter backend listener is configured within the test plan to support writing metrics to the Influx database which can then be presented via a Grafana dashboard.  The initial deployment only deploys a single jmeter-slave pod but can be scaled as needed to support the required number of client threads.  Included in the jmeter images that are deployed is the Azure Monitor backend listener plugin to allow data to be sent to Azure Monitor as an alternative destination [details](https://github.com/adrianmo/jmeter-backend-azure)
 
 ## Architecture
 
@@ -174,6 +180,19 @@ In some instances there may be a scenario where the remote slave cannot be conta
 ```
 kubectl get pods -o wide |grep {ip address}
 ```
+
+## Updating Master and Slave Images ##
+Occasionally there may be a need to add additional plugins / capabilities to the Jmeter images or update the version of Jmeter in use.  To support this an addional script is provided in the installs directory.  Additionally all initial images are tagged with 1.0.0 as well as the latest tag.
+
+To perform an update, for example add additional plugins to the images
+- amend the Dockerfiles in the master and slave directories
+- update the VERSION file in the installs directory to increment the image version
+- run the updateImage.sh script in the form:
+```
+ ./updateImages.sh -g <resource group of the fwk> -n <name of the fwk AKS cluster> 
+``` 
+
+This command will update the images and push a new version ( as defined in the VERSION file) to the acr repository and then update the current pods with the new image
 
 
 ## References
