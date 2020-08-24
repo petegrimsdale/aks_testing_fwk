@@ -1,3 +1,6 @@
+`#version 2.0
+#added plugin support
+
 FROM openjdk:8-jdk-slim
 		
 ARG JMETER_VERSION=5.2.1
@@ -6,16 +9,27 @@ RUN apt-get clean && \
 apt-get update && \
 apt-get -qy install \
 wget \
-unzip
+unzip \
+curl
+
+ENV JMETER_HOME /jmeter/apache-jmeter-$JMETER_VERSION/
+ENV JMETER_PLUGINS_MANAGER_VERSION 1.4
+ENV CMDRUNNER_VERSION 2.2
+ENV PATH $JMETER_HOME/bin:$PATH
 
 RUN   mkdir /jmeter \
 && cd /jmeter/ \
 && wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-$JMETER_VERSION.tgz \
 && tar -xzf apache-jmeter-$JMETER_VERSION.tgz \
-&& rm apache-jmeter-$JMETER_VERSION.tgz
+&& rm apache-jmeter-$JMETER_VERSION.tgz\
+&& curl --location --output ${JMETER_HOME}/lib/ext/jmeter-plugins-manager-${JMETER_PLUGINS_MANAGER_VERSION}.jar http://search.maven.org/remotecontent?filepath=kg/apc/jmeter-plugins-manager/${JMETER_PLUGINS_MANAGER_VERSION}/jmeter-plugins-manager-${JMETER_PLUGINS_MANAGER_VERSION}.jar \
+&& curl --location --output ${JMETER_HOME}/lib/cmdrunner-${CMDRUNNER_VERSION}.jar http://search.maven.org/remotecontent?filepath=kg/apc/cmdrunner/${CMDRUNNER_VERSION}/cmdrunner-${CMDRUNNER_VERSION}.jar \
+&& java -cp ${JMETER_HOME}/lib/ext/jmeter-plugins-manager-${JMETER_PLUGINS_MANAGER_VERSION}.jar org.jmeterplugins.repository.PluginManagerCMDInstaller \
+&& PluginsManagerCMD.sh install \
+jmeter.backendlistener.azure=0.2.2 \
+&& jmeter --version \
+&& PluginsManagerCMD.sh status 
 
-ENV JMETER_HOME /jmeter/apache-jmeter-$JMETER_VERSION/
-		
-ENV PATH $JMETER_HOME/bin:$PATH
+ADD VERSION ../installs/
 
 EXPOSE 60000
